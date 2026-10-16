@@ -25,8 +25,8 @@ To set up the project locally, follow these steps:
 
 1. **Clone the repository**:
     ```bash
-    git clone https://github.com/A-RYAN-1/Cash-Your-Coupons.git
-    cd Cash-Your-Coupons
+    git clone https://github.com/A-RYAN-1/cash-your-coupons.git
+    cd cash-your-coupons
     ```
 
 2. **Install dependencies**:
