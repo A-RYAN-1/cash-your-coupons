@@ -41,3 +41,7 @@ yarn-error.*
 # generated native projects (Expo prebuild)
 /android
 /ios
+.vercel
+
+.vercel
+.env*
