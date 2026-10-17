@@ -1,30 +1,14 @@
-// firebase.js
 import { initializeApp } from "firebase/app";
-import {
-  getAuth,
-  initializeAuth,
-  getReactNativePersistence,
-} from "firebase/auth";
+// getReactNativePersistence exists only in the React Native build of firebase/auth, so the web-typed lint resolver cannot see it.
+// eslint-disable-next-line import/named
+import { initializeAuth, getReactNativePersistence } from "firebase/auth";
 import { getFirestore } from "firebase/firestore";
-import { getAnalytics } from "firebase/analytics";
 import ReactNativeAsyncStorage from "@react-native-async-storage/async-storage";
+import { firebaseConfig } from "./config";
 
-// Your web app's Firebase configuration
-const firebaseConfig = {
-  apiKey: "AIzaSyDYV52xJRMj5y_Nmfmr1OxSKU6uMhJv__g",
-  authDomain: "cyc2-f3f90.firebaseapp.com",
-  projectId: "cyc2-f3f90",
-  storageBucket: "cyc2-f3f90.firebasestorage.app",
-  messagingSenderId: "494235918813",
-  appId: "1:494235918813:web:987923971e8f839f929634",
-  measurementId: "G-49YXWWN1HD",
-};
-
-// Initialize Firebase
 const app = initializeApp(firebaseConfig);
-const analytics = getAnalytics(app);
 
-// Initialize Firebase Auth with AsyncStorage persistence
+// Keep the signed-in user between app launches.
 const auth = initializeAuth(app, {
   persistence: getReactNativePersistence(ReactNativeAsyncStorage),
 });

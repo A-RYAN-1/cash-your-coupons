@@ -2,7 +2,6 @@ import React, { useState, useEffect, useCallback } from "react";
 import {
   View,
   Text,
-  FlatList,
   TouchableOpacity,
   StyleSheet,
   Alert,
@@ -16,7 +15,6 @@ import {
   getDocs,
   query,
   where,
-  addDoc,
   doc,
   runTransaction,
   Timestamp,
@@ -37,7 +35,7 @@ const BuyCouponsScreen = () => {
     try {
       const user = auth.currentUser;
       if (!user) {
-        Alert.alert("🚫 Error", "Please log in to view coupons.");
+        Alert.alert("Error", "Please log in to view coupons.");
         return;
       }
 
@@ -72,7 +70,7 @@ const BuyCouponsScreen = () => {
       setCoupons(sorted);
     } catch (error) {
       console.error("Error fetching coupons:", error.message);
-      Alert.alert("⚠️ Error", "Something went wrong while fetching coupons.");
+      Alert.alert("Error", "Something went wrong while fetching coupons.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -87,7 +85,7 @@ const BuyCouponsScreen = () => {
     try {
       const user = auth.currentUser;
       if (!user) {
-        Alert.alert("🚫 Error", "You must be logged in to buy coupons.");
+        Alert.alert("Error", "You must be logged in to buy coupons.");
         return;
       }
 
@@ -120,26 +118,23 @@ const BuyCouponsScreen = () => {
           createdAt: new Date(),
         };
 
-        console.log("Transaction data:", data);
         const transactionRef = doc(
           db,
           "transactions",
           `${user.uid}_${coupon.id}`
         );
         await transaction.set(transactionRef, data, { merge: true });
-        console.log("Coupon to delete:", coupon.id);
-        console.log("Coupon data before delete:", couponData); // Debug log
         await transaction.delete(couponRef);
       });
 
       Alert.alert(
-        "✅ Success",
-        `You bought 🎟️ ${coupon.name} for ₹${coupon.value || 500}`
+        "Success",
+        `You bought ${coupon.name} for ₹${coupon.value || 500}`
       );
       setCoupons((prev) => prev.filter((c) => c.id !== coupon.id));
     } catch (error) {
       console.error("Error buying coupon:", error.message);
-      Alert.alert("❌ Error", error.message || "Could not complete purchase.");
+      Alert.alert("Error", error.message || "Could not complete purchase.");
     }
   }, []);
 
@@ -234,16 +229,16 @@ const BuyCouponsScreen = () => {
       return (
         <View style={[styles.card, isExpiringSoon && styles.expiringCard]}>
           <View style={styles.cardLeft}>
-            <Text style={styles.cardTitle}>🎟️ {item.name || "Unnamed"}</Text>
-            <Text style={styles.cardDetail}>💰 ₹{item.value ?? "N/A"}</Text>
+            <Text style={styles.cardTitle}>{item.name || "Unnamed"}</Text>
+            <Text style={styles.cardDetail}>₹{item.value ?? "N/A"}</Text>
             <Text style={styles.cardDetail}>
-              📝 {item.details || "No details"}
+              {item.details || "No details"}
             </Text>
             <Text style={styles.cardDetail}>
-              ⏳ {expiryDate.toLocaleDateString()}
+              Expires {expiryDate.toLocaleDateString()}
             </Text>
             {isExpired && (
-              <Text style={styles.expiredText}>⚠️ This coupon has expired</Text>
+              <Text style={styles.expiredText}>This coupon has expired</Text>
             )}
           </View>
           <TouchableOpacity
@@ -273,7 +268,7 @@ const BuyCouponsScreen = () => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4F46E5" />
-        <Text style={styles.loadingText}>Loading coupons... 🎟️</Text>
+        <Text style={styles.loadingText}>Loading coupons... </Text>
       </View>
     );
   }
@@ -321,7 +316,7 @@ const BuyCouponsScreen = () => {
         keyExtractor={(item) => item.id}
         ListEmptyComponent={
           <Text style={styles.emptyState}>
-            😕 No coupons available right now. Check back later!
+            No coupons available right now. Check back later!
           </Text>
         }
         refreshControl={

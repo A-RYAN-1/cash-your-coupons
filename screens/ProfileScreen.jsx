@@ -21,7 +21,6 @@ import {
   doc,
   getDoc,
   setDoc,
-  updateDoc,
 } from "firebase/firestore";
 import { signOut } from "firebase/auth";
 
@@ -47,7 +46,7 @@ const ProfileScreen = ({ navigation }) => {
     try {
       const user = auth.currentUser;
       if (!user) {
-        Alert.alert("🚫 Error", "Please log in to view your profile.");
+        Alert.alert("Error", "Please log in to view your profile.");
         return;
       }
 
@@ -94,7 +93,7 @@ const ProfileScreen = ({ navigation }) => {
       setBoughtCoupons(boughtList);
     } catch (error) {
       console.error("Error fetching user activity:", error.message);
-      Alert.alert("❌ Error", "Failed to load profile data. Please try again.");
+      Alert.alert("Error", "Failed to load profile data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -107,13 +106,13 @@ const ProfileScreen = ({ navigation }) => {
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      Alert.alert("✅ Success", "Logged out successfully");
+      Alert.alert("Success", "Logged out successfully");
       navigation.reset({
         index: 0,
         routes: [{ name: "Login" }],
       });
     } catch (error) {
-      Alert.alert("❌ Error", error.message);
+      Alert.alert("Error", error.message);
     }
   };
 
@@ -129,11 +128,11 @@ const ProfileScreen = ({ navigation }) => {
       const userDocRef = doc(db, "users", user.uid);
       await setDoc(userDocRef, userDetails, { merge: true });
       setEditModalVisible(false);
-      Alert.alert("✅ Success", "Profile details saved!");
+      Alert.alert("Success", "Profile details saved!");
     } catch (error) {
       console.error("Error saving user details:", error.message);
       Alert.alert(
-        "❌ Error",
+        "Error",
         "Failed to save profile details. Please try again."
       );
     }
@@ -141,11 +140,11 @@ const ProfileScreen = ({ navigation }) => {
 
   const renderSoldCoupon = ({ item }) => (
     <View style={styles.couponCard}>
-      <Text style={styles.couponName}>🎟️ {item.name || "Unnamed"}</Text>
-      <Text style={styles.couponValue}>💰 ₹{item.value || "N/A"}</Text>
-      <Text style={styles.couponDetail}>📜 {item.details || "No details"}</Text>
+      <Text style={styles.couponName}>{item.name || "Unnamed"}</Text>
+      <Text style={styles.couponValue}>₹{item.value || "N/A"}</Text>
+      <Text style={styles.couponDetail}>{item.details || "No details"}</Text>
       <Text style={styles.couponDetail}>
-        📅 Expires:{" "}
+        Expires:{" "}
         {item.expiryDate
           ? new Date(item.expiryDate).toLocaleDateString()
           : "N/A"}
@@ -155,8 +154,8 @@ const ProfileScreen = ({ navigation }) => {
 
   const renderBoughtCoupon = ({ item }) => (
     <View style={styles.couponCard}>
-      <Text style={styles.couponName}>🎟️ {item.couponName || "Unnamed"}</Text>
-      <Text style={styles.couponValue}>💰 ₹{item.couponValue || "N/A"}</Text>
+      <Text style={styles.couponName}>{item.couponName || "Unnamed"}</Text>
+      <Text style={styles.couponValue}>₹{item.couponValue || "N/A"}</Text>
     </View>
   );
 
@@ -186,7 +185,7 @@ const ProfileScreen = ({ navigation }) => {
               style={styles.editButton}
               onPress={() => setEditModalVisible(true)}
             >
-              <Text style={styles.buttonText}>✏️ Edit Profile</Text>
+              <Text style={styles.buttonText}>Edit Profile</Text>
             </TouchableOpacity>
           </View>
         );
@@ -195,7 +194,7 @@ const ProfileScreen = ({ navigation }) => {
           <View style={styles.section}>
             <View style={styles.summaryRow}>
               <Text style={styles.sectionTitle}>
-                🎯 Coupons Listed for Sale
+                Coupons Listed for Sale
               </Text>
               <Text style={styles.countText}>{soldCoupons.length} Listed</Text>
             </View>
@@ -224,7 +223,7 @@ const ProfileScreen = ({ navigation }) => {
         return (
           <View style={styles.section}>
             <View style={styles.summaryRow}>
-              <Text style={styles.sectionTitle}>🛒 Coupons Bought</Text>
+              <Text style={styles.sectionTitle}>Coupons Bought</Text>
               <Text style={styles.countText}>
                 {boughtCoupons.length} Bought
               </Text>
@@ -253,7 +252,7 @@ const ProfileScreen = ({ navigation }) => {
       case "logout":
         return (
           <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.buttonText}>🚪 Logout</Text>
+            <Text style={styles.buttonText}>Logout</Text>
           </TouchableOpacity>
         );
       default:
@@ -265,7 +264,7 @@ const ProfileScreen = ({ navigation }) => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4F46E5" />
-        <Text style={styles.loadingText}>Loading profile... 👤</Text>
+        <Text style={styles.loadingText}>Loading profile... </Text>
       </View>
     );
   }
@@ -358,13 +357,13 @@ const ProfileScreen = ({ navigation }) => {
                 style={styles.cancelButton}
                 onPress={() => setEditModalVisible(false)}
               >
-                <Text style={styles.buttonText}>❌ Cancel</Text>
+                <Text style={styles.buttonText}>Cancel</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.saveButton}
                 onPress={saveUserDetails}
               >
-                <Text style={styles.buttonText}>✅ Save</Text>
+                <Text style={styles.buttonText}>Save</Text>
               </TouchableOpacity>
             </View>
           </View>

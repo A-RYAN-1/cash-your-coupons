@@ -27,14 +27,14 @@ const SellCouponsScreen = () => {
   const couponDetailsRef = useRef(null);
 
   const categories = [
-    "🍕 Food",
-    "👗 Clothes",
-    "✈️ Travel",
-    "💻 Electronics",
-    "🎮 Online Gaming",
-    "💄 Beauty",
-    "🧘 Health & Wellness",
-    "📦 Others",
+    "Food",
+    "Clothes",
+    "Travel",
+    "Electronics",
+    "Online Gaming",
+    "Beauty",
+    "Health & Wellness",
+    "Others",
   ];
 
   useEffect(() => {
@@ -52,7 +52,7 @@ const SellCouponsScreen = () => {
     } catch (error) {
       console.error("Error fetching coupons:", error.message);
       Alert.alert(
-        "❌ Error",
+        "Error",
         "Failed to fetch coupons. Please try again later."
       );
     }
@@ -85,14 +85,14 @@ const SellCouponsScreen = () => {
       !category ||
       !expiryDate
     ) {
-      Alert.alert("⚠️ Incomplete", "Please fill in all fields");
+      Alert.alert("Incomplete", "Please fill in all fields");
       return;
     }
 
     const parsedDate = parseDate(expiryDate);
     if (!parsedDate) {
       Alert.alert(
-        "⚠️ Invalid Date",
+        "Invalid Date",
         "Please enter a valid future date in DD-MM-YYYY format (e.g., 11-04-2025)"
       );
       return;
@@ -128,12 +128,12 @@ const SellCouponsScreen = () => {
       setCouponDetails("");
       setCategory("");
       setExpiryDate("");
-      Alert.alert("✅ Success", "Coupon listed for sale!");
+      Alert.alert("Success", "Coupon listed for sale!");
       if (couponNameRef.current) couponNameRef.current.focus();
     } catch (error) {
       console.error("Error adding coupon:", error.message);
       Alert.alert(
-        "❌ Error",
+        "Error",
         "Failed to add coupon. Check permissions or try again."
       );
     }
@@ -145,7 +145,7 @@ const SellCouponsScreen = () => {
       behavior={Platform.OS === "ios" ? "padding" : "height"}
       keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
     >
-      <Text style={styles.label}>📝 Title</Text>
+      <Text style={styles.label}>Title</Text>
       <TextInput
         ref={couponNameRef}
         style={styles.input}
@@ -158,7 +158,7 @@ const SellCouponsScreen = () => {
         autoFocus={true}
       />
 
-      <Text style={styles.label}>📂 Category</Text>
+      <Text style={styles.label}>Category</Text>
       <View style={styles.pickerContainer}>
         <Picker
           selectedValue={category}
@@ -172,7 +172,7 @@ const SellCouponsScreen = () => {
         </Picker>
       </View>
 
-      <Text style={styles.label}>💰 Price (₹)</Text>
+      <Text style={styles.label}>Price (₹)</Text>
       <TextInput
         ref={couponValueRef}
         style={styles.input}
@@ -185,7 +185,7 @@ const SellCouponsScreen = () => {
         blurOnSubmit={false}
       />
 
-      <Text style={styles.label}>📅 Expiry Date</Text>
+      <Text style={styles.label}>Expiry Date</Text>
       <TextInput
         style={styles.input}
         placeholder="Enter expiry date (DD-MM-YYYY)"
@@ -198,7 +198,7 @@ const SellCouponsScreen = () => {
         blurOnSubmit={false}
       />
 
-      <Text style={styles.label}>📝 Description</Text>
+      <Text style={styles.label}>Description</Text>
       <TextInput
         ref={couponDetailsRef}
         style={[styles.input, styles.multilineInput]}
@@ -213,7 +213,7 @@ const SellCouponsScreen = () => {
       />
 
       <TouchableOpacity style={styles.submitButton} onPress={handleAddCoupon}>
-        <Text style={styles.buttonText}>📤 Submit</Text>
+        <Text style={styles.buttonText}>Submit</Text>
       </TouchableOpacity>
 
       <View style={styles.divider} />

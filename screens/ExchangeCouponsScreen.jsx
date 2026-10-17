@@ -26,7 +26,7 @@ const ExchangeCouponsScreen = () => {
 
   const handleSearch = async () => {
     if (!couponName.trim() || !category.trim() || !price.trim()) {
-      Alert.alert("🚫 Error", "Please fill in all fields");
+      Alert.alert("Error", "Please fill in all fields");
       return;
     }
 
@@ -34,7 +34,7 @@ const ExchangeCouponsScreen = () => {
     try {
       const user = auth.currentUser;
       if (!user) {
-        Alert.alert("🚫 Error", "Please log in to search coupons.");
+        Alert.alert("Error", "Please log in to search coupons.");
         return;
       }
 
@@ -53,7 +53,7 @@ const ExchangeCouponsScreen = () => {
       setMatchingCoupons(matchedCoupons);
     } catch (error) {
       console.error("Error fetching coupons:", error.message);
-      Alert.alert("❌ Error", "Failed to search coupons. Please try again.");
+      Alert.alert("Error", "Failed to search coupons. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -74,14 +74,14 @@ const ExchangeCouponsScreen = () => {
 
   const renderCouponItem = ({ item }) => (
     <View style={styles.couponCard}>
-      <Text style={styles.couponName}>🎟️ {item.name || "Unnamed"}</Text>
+      <Text style={styles.couponName}>{item.name || "Unnamed"}</Text>
       <Text style={styles.couponDetail}>
-        📂 Category: {item.category || "N/A"}
+        Category: {item.category || "N/A"}
       </Text>
-      <Text style={styles.couponDetail}>💰 Price: ₹{item.value || "N/A"}</Text>
+      <Text style={styles.couponDetail}>Price: ₹{item.value || "N/A"}</Text>
       {item.expiryDate && (
         <Text style={styles.couponDetail}>
-          ⏳ Expires: {new Date(item.expiryDate).toLocaleDateString()}
+          Expires: {new Date(item.expiryDate).toLocaleDateString()}
         </Text>
       )}
     </View>
@@ -91,7 +91,7 @@ const ExchangeCouponsScreen = () => {
     return (
       <View style={styles.loadingContainer}>
         <ActivityIndicator size="large" color="#4F46E5" />
-        <Text style={styles.loadingText}>Searching coupons... 🔍</Text>
+        <Text style={styles.loadingText}>Searching coupons... </Text>
       </View>
     );
   }
@@ -109,7 +109,7 @@ const ExchangeCouponsScreen = () => {
         <View style={styles.content}>
           <View style={styles.formCard}>
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>📝 Your Coupon Name</Text>
+              <Text style={styles.label}>Your Coupon Name</Text>
               <TextInput
                 style={styles.input}
                 value={couponName}
@@ -120,7 +120,7 @@ const ExchangeCouponsScreen = () => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>📂 Coupon Category</Text>
+              <Text style={styles.label}>Coupon Category</Text>
               <TextInput
                 style={styles.input}
                 value={category}
@@ -131,7 +131,7 @@ const ExchangeCouponsScreen = () => {
             </View>
 
             <View style={styles.inputGroup}>
-              <Text style={styles.label}>💰 Coupon Price</Text>
+              <Text style={styles.label}>Coupon Price</Text>
               <TextInput
                 style={styles.input}
                 value={price}
@@ -147,14 +147,14 @@ const ExchangeCouponsScreen = () => {
                 style={styles.clearButton}
                 onPress={handleClear}
               >
-                <Text style={styles.buttonText}>🗑️ Clear</Text>
+                <Text style={styles.buttonText}>Clear</Text>
               </TouchableOpacity>
               <TouchableOpacity
                 style={styles.addButton}
                 onPress={handleSearch}
                 disabled={loading}
               >
-                <Text style={styles.buttonText}>🔍 Search Coupons</Text>
+                <Text style={styles.buttonText}>Search Coupons</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -165,7 +165,7 @@ const ExchangeCouponsScreen = () => {
             renderItem={renderCouponItem}
             keyExtractor={(item) => item.id}
             ListEmptyComponent={
-              <Text style={styles.emptyText}>😕 No matching coupons found</Text>
+              <Text style={styles.emptyText}>No matching coupons found</Text>
             }
             contentContainerStyle={styles.listContent}
             refreshControl={
