@@ -6,7 +6,6 @@ import {
   TouchableOpacity,
   FlatList,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   SafeAreaView,
   KeyboardAvoidingView,
@@ -15,6 +14,7 @@ import {
 } from "react-native";
 import { collection, query, where, getDocs } from "firebase/firestore";
 import { auth, db } from "../firebase";
+import { notify } from "../notify";
 
 const ExchangeCouponsScreen = () => {
   const [couponName, setCouponName] = useState("");
@@ -26,7 +26,7 @@ const ExchangeCouponsScreen = () => {
 
   const handleSearch = async () => {
     if (!couponName.trim() || !category.trim() || !price.trim()) {
-      Alert.alert("Error", "Please fill in all fields");
+      notify("Error", "Please fill in all fields");
       return;
     }
 
@@ -34,7 +34,7 @@ const ExchangeCouponsScreen = () => {
     try {
       const user = auth.currentUser;
       if (!user) {
-        Alert.alert("Error", "Please log in to search coupons.");
+        notify("Error", "Please log in to search coupons.");
         return;
       }
 
@@ -53,7 +53,7 @@ const ExchangeCouponsScreen = () => {
       setMatchingCoupons(matchedCoupons);
     } catch (error) {
       console.error("Error fetching coupons:", error.message);
-      Alert.alert("Error", "Failed to search coupons. Please try again.");
+      notify("Error", "Failed to search coupons. Please try again.");
     } finally {
       setLoading(false);
     }

@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   RefreshControl,
   SectionList,
@@ -20,6 +19,7 @@ import {
   Timestamp,
 } from "firebase/firestore";
 import { auth, db } from "../firebase";
+import { notify } from "../notify";
 import { Picker } from "@react-native-picker/picker";
 
 const BuyCouponsScreen = () => {
@@ -35,7 +35,7 @@ const BuyCouponsScreen = () => {
     try {
       const user = auth.currentUser;
       if (!user) {
-        Alert.alert("Error", "Please log in to view coupons.");
+        notify("Error", "Please log in to view coupons.");
         return;
       }
 
@@ -70,7 +70,7 @@ const BuyCouponsScreen = () => {
       setCoupons(sorted);
     } catch (error) {
       console.error("Error fetching coupons:", error.message);
-      Alert.alert("Error", "Something went wrong while fetching coupons.");
+      notify("Error", "Something went wrong while fetching coupons.");
     } finally {
       setLoading(false);
       setRefreshing(false);
@@ -78,6 +78,8 @@ const BuyCouponsScreen = () => {
   }, []);
 
   useEffect(() => {
+    // Load on mount; the loader sets its own loading flags first.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchCoupons();
   }, [fetchCoupons]);
 
@@ -85,7 +87,7 @@ const BuyCouponsScreen = () => {
     try {
       const user = auth.currentUser;
       if (!user) {
-        Alert.alert("Error", "You must be logged in to buy coupons.");
+        notify("Error", "You must be logged in to buy coupons.");
         return;
       }
 
@@ -127,14 +129,14 @@ const BuyCouponsScreen = () => {
         await transaction.delete(couponRef);
       });
 
-      Alert.alert(
+      notify(
         "Success",
         `You bought ${coupon.name} for ₹${coupon.value || 500}`
       );
       setCoupons((prev) => prev.filter((c) => c.id !== coupon.id));
     } catch (error) {
       console.error("Error buying coupon:", error.message);
-      Alert.alert("Error", error.message || "Could not complete purchase.");
+      notify("Error", error.message || "Could not complete purchase.");
     }
   }, []);
 

@@ -37,3 +37,7 @@ yarn-error.*
 
 # local env (real values)
 .env
+
+# generated native projects (Expo prebuild)
+/android
+/ios

@@ -4,7 +4,6 @@ import {
   Text,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ActivityIndicator,
   FlatList,
   Modal,
@@ -13,6 +12,7 @@ import {
   RefreshControl,
 } from "react-native";
 import { auth, db } from "../firebase";
+import { notify } from "../notify";
 import {
   collection,
   getDocs,
@@ -46,7 +46,7 @@ const ProfileScreen = ({ navigation }) => {
     try {
       const user = auth.currentUser;
       if (!user) {
-        Alert.alert("Error", "Please log in to view your profile.");
+        notify("Error", "Please log in to view your profile.");
         return;
       }
 
@@ -93,26 +93,28 @@ const ProfileScreen = ({ navigation }) => {
       setBoughtCoupons(boughtList);
     } catch (error) {
       console.error("Error fetching user activity:", error.message);
-      Alert.alert("Error", "Failed to load profile data. Please try again.");
+      notify("Error", "Failed to load profile data. Please try again.");
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    // Load on mount; the loader sets its own loading flag first.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     fetchUserActivity();
   }, [fetchUserActivity]);
 
   const handleLogout = async () => {
     try {
       await signOut(auth);
-      Alert.alert("Success", "Logged out successfully");
+      notify("Success", "Logged out successfully");
       navigation.reset({
         index: 0,
         routes: [{ name: "Login" }],
       });
     } catch (error) {
-      Alert.alert("Error", error.message);
+      notify("Error", error.message);
     }
   };
 
@@ -128,10 +130,10 @@ const ProfileScreen = ({ navigation }) => {
       const userDocRef = doc(db, "users", user.uid);
       await setDoc(userDocRef, userDetails, { merge: true });
       setEditModalVisible(false);
-      Alert.alert("Success", "Profile details saved!");
+      notify("Success", "Profile details saved!");
     } catch (error) {
       console.error("Error saving user details:", error.message);
-      Alert.alert(
+      notify(
         "Error",
         "Failed to save profile details. Please try again."
       );

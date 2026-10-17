@@ -5,7 +5,6 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   ImageBackground,
 } from "react-native";
 import {
@@ -13,6 +12,7 @@ import {
   createUserWithEmailAndPassword,
 } from "firebase/auth";
 import { auth } from "../firebase";
+import { notify } from "../notify";
 import Animated, {
   useSharedValue,
   useAnimatedStyle,
@@ -44,12 +44,12 @@ const LoginScreen = ({ navigation }) => {
       navigation.navigate("Main");
     } catch (error) {
       if (error.code === "auth/network-request-failed") {
-        Alert.alert(
+        notify(
           "Network Error",
           "Please check your internet connection and try again."
         );
       } else {
-        Alert.alert("Login Failed", error.message);
+        notify("Login Failed", error.message);
       }
     }
   };
@@ -57,15 +57,15 @@ const LoginScreen = ({ navigation }) => {
   const handleRegister = async () => {
     try {
       await createUserWithEmailAndPassword(auth, email, password);
-      Alert.alert("Success", "Account created! Please log in.");
+      notify("Success", "Account created! Please log in.");
     } catch (error) {
       if (error.code === "auth/network-request-failed") {
-        Alert.alert(
+        notify(
           "Network Error",
           "Please check your internet connection and try again."
         );
       } else {
-        Alert.alert("Registration Failed", error.message);
+        notify("Registration Failed", error.message);
       }
     }
   };

@@ -16,13 +16,13 @@
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/Expo-52-000020?logo=expo&logoColor=white" alt="Expo 52">
-  <img src="https://img.shields.io/badge/React_Native-0.76-61DAFB?logo=react&logoColor=black" alt="React Native 0.76">
+  <img src="https://img.shields.io/badge/Expo-58-000020?logo=expo&logoColor=white" alt="Expo 58">
+  <img src="https://img.shields.io/badge/React_Native-0.88-61DAFB?logo=react&logoColor=black" alt="React Native 0.88">
   <img src="https://img.shields.io/badge/Firebase-11-FFCA28?logo=firebase&logoColor=black" alt="Firebase 11">
   <img src="https://img.shields.io/badge/Node-22-5FA04E?logo=nodedotjs&logoColor=white" alt="Node 22">
 </p>
 
-<p align="center"><sub>Last updated: 2026-10-17 &middot; Baseline: the Android bundle builds and lint is clean (checked 2026-10-17); not yet run on a device, no hosted version</sub></p>
+<p align="center"><sub>Last updated: 2026-10-17 &middot; Runs in Expo Go and in the browser; Android and web bundles build, lint is clean (checked 2026-10-17); no hosted version yet</sub></p>
 
 ---
 
@@ -51,17 +51,17 @@ is a React Native client built with Expo.
 
 ## Try it live
 
-Not deployed yet: this is a mobile app, and a store or preview build needs an Expo account and a
-device build (see [Deployment](#deployment)). Follow [Run it locally](#run-it-locally) to bundle it,
-and see [Status and roadmap](#status-and-roadmap) for what is checked.
-
-Once it runs on a device or emulator:
+Not deployed yet (see [Deployment](#deployment)). Follow [Run it locally](#run-it-locally): scan the
+QR code with Expo Go on your phone, or run it in the browser with `npm run web`. Then:
 
 1. Create an account on the login screen with an email and password.
 2. Open **Sell**, fill in the name, value, details, category and expiry date, and list a coupon.
 3. Sign in as a second user: the coupon appears under **Buy**, filtered by expiry (expired, this week, this month).
 4. Press buy: the purchase is recorded and the coupon leaves the list.
 5. Open **Exchange**, enter a category and price, and see other users' coupons that match.
+
+<p align="center"><img src="docs/images/login.png" width="30%" alt="The login screen: email and password fields with Login and Register buttons"></p>
+<p align="center"><sub>The login screen, from the web build (<a href="#how-it-works">how it works</a>)</sub></p>
 
 ## Features
 
@@ -117,27 +117,29 @@ cannot both get the same coupon.
 
 | Layer | Technology |
 |---|---|
-| App | React Native 0.76 with Expo 52, React 18 |
+| App | React Native 0.88 with Expo 58, React 19; runs on Android, iOS and the web (react-native-web) |
 | Navigation | React Navigation 7 (stack and bottom tabs) |
 | Backend | Firebase Authentication and Cloud Firestore (Firebase JS SDK 11) |
-| Quality | ESLint with the Expo config, an Android bundle check |
+| Quality | ESLint with the Expo config, `expo-doctor`, Android and web bundle check |
 | Toolchain | Node 22, pinned in `mise.toml` |
 
 ### Design decisions
 
 1. **Firebase instead of an own backend.** Auth, database and real-time rules with no server to run. Trade-off: the access rules live in the Firebase console, not in this repository, and the client does the business logic.
 2. **The purchase is a transaction.** It re-reads the coupon, checks expiry and deletes it atomically. Trade-off: the coupon is deleted on purchase, so there is no history of the listing itself, only the transaction record.
-3. **All Firebase settings from environment variables.** `config.js` reads `EXPO_PUBLIC_*` values and fails on startup with the list of missing ones. Trade-off: Expo inlines them into the app, so they are public (they identify the project; Firestore rules and Authentication protect the data).
+3. **One codebase for phone and browser.** `firebase.js` (native, session kept in AsyncStorage) and `firebase.web.js` (browser SDK) are picked per platform by Metro, and `notify.js` replaces `Alert`, which does nothing on the web. Trade-off: two small platform files to keep in step.
+4. **All Firebase settings from environment variables.** `config.js` reads `EXPO_PUBLIC_*` values and fails on startup with the list of missing ones. Trade-off: Expo inlines them into the app, so they are public (they identify the project; Firestore rules and Authentication protect the data).
 
 <details>
 <summary><strong>Project structure</strong></summary>
 
 ```
 App.js              navigation: login stack and the four tabs
-firebase.js         Firebase app, Auth (persisted) and Firestore
+firebase.js         Firebase app, Auth (persisted) and Firestore, native
+firebase.web.js     the same for the browser build
 config.js           Firebase settings from environment variables
+notify.js           one alert function for native and web
 screens/            Login, Buy, Sell, Exchange, Profile
-android/            native Android project (for a development build)
 mise.toml           Node version pin
 .env.example        every setting with a comment
 ```
@@ -149,10 +151,11 @@ mise.toml           Node version pin
 | Area | What is in place |
 |---|---|
 | Lint | ESLint (Expo config) clean of errors on 2026-10-17; two hook-dependency warnings remain |
-| Build check | `npm run check` lints and bundles the Android app with Hermes; passed on 2026-10-17 |
+| Build check | `npm run check` runs lint, `expo-doctor` (20 of 20 checks) and exports the Android (Hermes) and web bundles; passed on 2026-10-17 |
+| Browser run | the web build loaded in Chrome (Playwright, 2026-10-17); a wrong login reached Firebase Authentication and showed `auth/invalid-credential` |
 | Firebase project | on 2026-10-17 a read-only probe showed the project answers and refuses unauthenticated reads of `coupons` |
 | Secrets | none in the repository; Firebase settings come from the environment |
-| Not covered | no automated tests, no CI, no run on a device yet, dependency audit not clean (see below) |
+| Not covered | no automated tests, no CI, signed-in screens not yet exercised, not run on a physical device, dependency audit not clean (see below) |
 
 Run the checks:
 
@@ -171,14 +174,14 @@ cd cash-your-coupons
 mise install
 mise exec -- npm ci
 cp .env.example .env              # then put your Firebase web app settings in .env
-set -a; . ./.env; set +a          # Git Bash and Linux; see the note below for PowerShell
-mise exec -- npm run check        # lint plus an Android bundle; no device needed
-mise exec -- npx expo start       # then open it in a development build
+set -a; . ./.env; set +a          # Git Bash and Linux; in PowerShell set each variable with $env:NAME="value"
+mise exec -- npm run check        # lint, expo-doctor, Android and web bundles; no device needed
+mise exec -- npx expo start       # scan the QR code with Expo Go on your phone
+mise exec -- npm run web          # or open it in the browser
 ```
 
-The app includes `expo-dev-client`, so it runs in a **development build** (`npx expo run:android` with
-the Android SDK installed, or an EAS development build), not in the store version of Expo Go,
-which only opens the newest Expo SDK.
+The project is on Expo SDK 58, the version the store's Expo Go opens, so no native build or Android
+SDK is needed. When Expo Go moves on to a newer SDK, upgrade with `npx expo install expo@latest --fix`.
 
 <details>
 <summary><strong>Common problems</strong></summary>
@@ -208,15 +211,16 @@ environment. Never commit a real `.env` file; only `.env.example` is tracked.
 ## Deployment
 
 Not deployed yet. The backend is a Firebase project (Authentication and Firestore on the free Spark
-plan). The app has no hosted version: it needs a development build (EAS Build free tier or a local
-Android build) or a move to a newer Expo SDK so that Expo Go can open it. Planned hosts: Firebase
-for the backend, EAS for builds.
+plan). The web build (`npx expo export --platform web`) is a static site that can go to Vercel,
+Netlify or Firebase Hosting for free; phones use Expo Go against the same backend. Planned: the web
+export on Vercel, with the six `EXPO_PUBLIC_*` variables set on the host.
 
 ## Status and roadmap
 
-**Reached:** the project installs and bundles on this laptop (2026-10-17): `npm run check` passes,
-and the Firebase project is reachable and refuses unauthenticated reads. **Not reached:** a run on a
-device or emulator, which needs a development build.
+**Reached:** upgraded from Expo 52 to 58 on 2026-10-17 and checked on this laptop: `npm run check`
+passes, the web build runs in Chrome and talks to Firebase Authentication, and Firestore refuses
+unauthenticated reads. **Not reached:** the signed-in screens exercised end to end, and a run on a
+physical phone.
 
 **Known limitations**
 
@@ -230,7 +234,7 @@ device or emulator, which needs a development build.
 **Planned**
 
 - [ ] Export the Firestore rules into the repository and tighten them (owner-only edits).
-- [ ] A development build (EAS) so the app can be run and screenshotted on a device.
+- [ ] Deploy the web export free (Vercel) and add signed-in screenshots from it.
 - [ ] Tests for the buy transaction against the Firestore emulator, and CI.
 - [ ] Make Exchange create an exchange offer.
 

@@ -5,13 +5,13 @@ import {
   TextInput,
   TouchableOpacity,
   StyleSheet,
-  Alert,
   SafeAreaView,
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
 import { collection, addDoc, getDocs } from "firebase/firestore";
 import { auth, db } from "../firebase";
+import { notify } from "../notify";
 import { Picker } from "@react-native-picker/picker";
 
 const SellCouponsScreen = () => {
@@ -37,10 +37,6 @@ const SellCouponsScreen = () => {
     "Others",
   ];
 
-  useEffect(() => {
-    getCoupons();
-  }, []);
-
   const getCoupons = async () => {
     try {
       const querySnapshot = await getDocs(collection(db, "coupons"));
@@ -51,12 +47,18 @@ const SellCouponsScreen = () => {
       setCoupons(couponsList.filter((coupon) => coupon.type === "sell"));
     } catch (error) {
       console.error("Error fetching coupons:", error.message);
-      Alert.alert(
+      notify(
         "Error",
         "Failed to fetch coupons. Please try again later."
       );
     }
   };
+
+  useEffect(() => {
+    // Load on mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    getCoupons();
+  }, []);
 
   const parseDate = (dateStr) => {
     const [day, month, year] = dateStr.split("-").map(Number);
@@ -85,13 +87,13 @@ const SellCouponsScreen = () => {
       !category ||
       !expiryDate
     ) {
-      Alert.alert("Incomplete", "Please fill in all fields");
+      notify("Incomplete", "Please fill in all fields");
       return;
     }
 
     const parsedDate = parseDate(expiryDate);
     if (!parsedDate) {
-      Alert.alert(
+      notify(
         "Invalid Date",
         "Please enter a valid future date in DD-MM-YYYY format (e.g., 11-04-2025)"
       );
@@ -128,11 +130,11 @@ const SellCouponsScreen = () => {
       setCouponDetails("");
       setCategory("");
       setExpiryDate("");
-      Alert.alert("Success", "Coupon listed for sale!");
+      notify("Success", "Coupon listed for sale!");
       if (couponNameRef.current) couponNameRef.current.focus();
     } catch (error) {
       console.error("Error adding coupon:", error.message);
-      Alert.alert(
+      notify(
         "Error",
         "Failed to add coupon. Check permissions or try again."
       );
