@@ -12,8 +12,7 @@ import {
   Platform,
   RefreshControl,
 } from "react-native";
-import { collection, query, where, getDocs } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { listCoupons } from "../api";
 import { notify } from "../notify";
 
 const ExchangeCouponsScreen = () => {
@@ -32,28 +31,11 @@ const ExchangeCouponsScreen = () => {
 
     setLoading(true);
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        notify("Error", "Please log in to search coupons.");
-        return;
-      }
-
-      const couponsRef = collection(db, "coupons");
-      const q = query(couponsRef, where("userId", "!=", user.uid));
-      const snapshot = await getDocs(q);
-
-      const matchedCoupons = snapshot.docs
-        .map((doc) => ({ id: doc.id, ...doc.data() }))
-        .filter(
-          (coupon) =>
-            coupon.category === category ||
-            parseFloat(coupon.value) === parseFloat(price)
-        );
+      const matchedCoupons = await listCoupons({ category: category.trim(), value: price.trim() });
 
       setMatchingCoupons(matchedCoupons);
     } catch (error) {
-      console.error("Error fetching coupons:", error.message);
-      notify("Error", "Failed to search coupons. Please try again.");
+      notify("Error", error.message || "Failed to search coupons. Please try again.");
     } finally {
       setLoading(false);
     }

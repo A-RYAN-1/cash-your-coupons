@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef } from "react";
+import React, { useState, useRef } from "react";
 import {
   View,
   Text,
@@ -9,8 +9,7 @@ import {
   KeyboardAvoidingView,
   Platform,
 } from "react-native";
-import { collection, addDoc, getDocs } from "firebase/firestore";
-import { auth, db } from "../firebase";
+import { createCoupon } from "../api";
 import { notify } from "../notify";
 import { Picker } from "@react-native-picker/picker";
 
@@ -20,7 +19,6 @@ const SellCouponsScreen = () => {
   const [couponDetails, setCouponDetails] = useState("");
   const [category, setCategory] = useState("");
   const [expiryDate, setExpiryDate] = useState(""); // Changed to string for DD-MM-YYYY input
-  const [coupons, setCoupons] = useState([]); // Kept for potential future use, but not displayed here
 
   const couponNameRef = useRef(null);
   const couponValueRef = useRef(null);
@@ -36,29 +34,6 @@ const SellCouponsScreen = () => {
     "Health & Wellness",
     "Others",
   ];
-
-  const getCoupons = async () => {
-    try {
-      const querySnapshot = await getDocs(collection(db, "coupons"));
-      const couponsList = querySnapshot.docs.map((doc) => ({
-        id: doc.id,
-        ...doc.data(),
-      }));
-      setCoupons(couponsList.filter((coupon) => coupon.type === "sell"));
-    } catch (error) {
-      console.error("Error fetching coupons:", error.message);
-      notify(
-        "Error",
-        "Failed to fetch coupons. Please try again later."
-      );
-    }
-  };
-
-  useEffect(() => {
-    // Load on mount.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    getCoupons();
-  }, []);
 
   const parseDate = (dateStr) => {
     const [day, month, year] = dateStr.split("-").map(Number);
@@ -101,30 +76,13 @@ const SellCouponsScreen = () => {
     }
 
     try {
-      const user = auth.currentUser;
-      const expiryDateISO = parsedDate.toISOString();
-      await addDoc(collection(db, "coupons"), {
+      await createCoupon({
         name: couponName,
         value: parseFloat(couponValue),
         details: couponDetails,
-        expiryDate: expiryDateISO,
+        expiryDate: parsedDate.toISOString(),
         category,
-        type: "sell",
-        userId: user.uid,
-        userEmail: user.email,
-        createdAt: new Date(),
       });
-      setCoupons([
-        ...coupons,
-        {
-          id: Math.random().toString(),
-          name: couponName,
-          value: couponValue,
-          details: couponDetails,
-          expiryDate: expiryDateISO,
-          category,
-        },
-      ]);
       setCouponName("");
       setCouponValue("");
       setCouponDetails("");
@@ -133,11 +91,7 @@ const SellCouponsScreen = () => {
       notify("Success", "Coupon listed for sale!");
       if (couponNameRef.current) couponNameRef.current.focus();
     } catch (error) {
-      console.error("Error adding coupon:", error.message);
-      notify(
-        "Error",
-        "Failed to add coupon. Check permissions or try again."
-      );
+      notify("Error", error.message || "Failed to add coupon. Try again.");
     }
   };
 

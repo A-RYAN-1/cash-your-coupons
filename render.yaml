@@ -1,0 +1,20 @@
+# Render blueprint for the API (free plan; it sleeps after 15 minutes idle).
+services:
+  - type: web
+    name: cash-your-coupons-api
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: server
+    buildCommand: npm ci && npm run migrate
+    startCommand: npm start
+    healthCheckPath: /health
+    envVars:
+      - key: DATABASE_URL
+        sync: false
+      - key: JWT_SECRET
+        generateValue: true
+      - key: CORS_ORIGINS
+        value: https://cash-your-coupons.vercel.app
+      - key: DATABASE_SSL
+        value: "true"

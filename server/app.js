@@ -175,9 +175,9 @@ function createApp({ authLimit = 20 } = {}) {
     const filters = [];
     const params = [req.user.id];
     if (category !== undefined) {
-      if (!CATEGORIES.includes(category)) return fail(res, 400, "Unknown category");
-      params.push(category);
-      filters.push(`category = $${params.length}`);
+      if (typeof category !== "string") return fail(res, 400, "Invalid category");
+      params.push(category.trim());
+      filters.push(`lower(category) = lower($${params.length})`);
     }
     if (value !== undefined) {
       const number = Number(value);

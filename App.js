@@ -3,7 +3,7 @@ import { NavigationContainer } from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { Ionicons } from "@expo/vector-icons";
-import { auth } from "./firebase";
+import { restoreSession, onSessionChange } from "./api";
 import BuyCouponsScreen from "./screens/BuyCouponsScreen";
 import SellCouponsScreen from "./screens/SellCouponsScreen";
 import ExchangeCouponsScreen from "./screens/ExchangeCouponsScreen";
@@ -47,11 +47,9 @@ const App = () => {
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    const unsubscribe = auth.onAuthStateChanged((user) => {
-      setIsAuthenticated(!!user);
-      setIsLoading(false);
-    });
-    return () => unsubscribe();
+    const unsubscribe = onSessionChange(setIsAuthenticated);
+    restoreSession().finally(() => setIsLoading(false));
+    return unsubscribe;
   }, []);
 
   if (isLoading) {
@@ -65,7 +63,6 @@ const App = () => {
   return (
     <NavigationContainer>
       <Stack.Navigator
-        initialRouteName={isAuthenticated ? "Main" : "Login"}
         screenOptions={{
           headerShown: false,
           keyboardHandlingEnabled: true,
@@ -83,8 +80,11 @@ const App = () => {
           }),
         }}
       >
-        <Stack.Screen name="Login" component={LoginScreen} />
-        <Stack.Screen name="Main" component={MainTabs} />
+        {isAuthenticated ? (
+          <Stack.Screen name="Main" component={MainTabs} />
+        ) : (
+          <Stack.Screen name="Login" component={LoginScreen} />
+        )}
       </Stack.Navigator>
     </NavigationContainer>
   );

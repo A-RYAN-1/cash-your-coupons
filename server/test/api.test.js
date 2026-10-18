@@ -205,7 +205,8 @@ test("exchange search matches by category or by value", async () => {
     .set(auth(buyer))
     .expect(200);
   assert.ok(!neither.body.some((c) => c.id === travel.body.id));
-  await request(app).get("/coupons?category=Weapons").set(auth(buyer)).expect(400);
+  const lower = await request(app).get("/coupons?category=travel").set(auth(buyer)).expect(200);
+  assert.ok(lower.body.some((c) => c.id === travel.body.id));
   await request(app).get("/coupons?value=abc").set(auth(buyer)).expect(400);
 });
 

@@ -7,11 +7,7 @@ import {
   StyleSheet,
   ImageBackground,
 } from "react-native";
-import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-} from "firebase/auth";
-import { auth } from "../firebase";
+import { login, register } from "../api";
 import { notify } from "../notify";
 import Animated, {
   useSharedValue,
@@ -20,7 +16,7 @@ import Animated, {
 } from "react-native-reanimated";
 import { LinearGradient } from "expo-linear-gradient"; // Updated import
 
-const LoginScreen = ({ navigation }) => {
+const LoginScreen = () => {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -40,33 +36,17 @@ const LoginScreen = ({ navigation }) => {
 
   const handleLogin = async () => {
     try {
-      await signInWithEmailAndPassword(auth, email, password);
-      navigation.navigate("Main");
+      await login(email, password);
     } catch (error) {
-      if (error.code === "auth/network-request-failed") {
-        notify(
-          "Network Error",
-          "Please check your internet connection and try again."
-        );
-      } else {
-        notify("Login Failed", error.message);
-      }
+      notify("Login Failed", error.message);
     }
   };
 
   const handleRegister = async () => {
     try {
-      await createUserWithEmailAndPassword(auth, email, password);
-      notify("Success", "Account created! Please log in.");
+      await register(email, password);
     } catch (error) {
-      if (error.code === "auth/network-request-failed") {
-        notify(
-          "Network Error",
-          "Please check your internet connection and try again."
-        );
-      } else {
-        notify("Registration Failed", error.message);
-      }
+      notify("Registration Failed", error.message);
     }
   };
 

@@ -11,20 +11,17 @@ import {
   SafeAreaView,
   RefreshControl,
 } from "react-native";
-import { auth, db } from "../firebase";
-import { notify } from "../notify";
 import {
-  collection,
-  getDocs,
-  query,
-  where,
-  doc,
-  getDoc,
-  setDoc,
-} from "firebase/firestore";
-import { signOut } from "firebase/auth";
+  getProfile,
+  saveProfile,
+  listMyCoupons,
+  listPurchases,
+  withdrawCoupon,
+  logout,
+} from "../api";
+import { notify, confirmAction } from "../notify";
 
-const ProfileScreen = ({ navigation }) => {
+const ProfileScreen = () => {
   const [soldCoupons, setSoldCoupons] = useState([]);
   const [boughtCoupons, setBoughtCoupons] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -40,60 +37,29 @@ const ProfileScreen = ({ navigation }) => {
     dob: "", // Date of Birth in DD-MM-YYYY
   });
   const [editModalVisible, setEditModalVisible] = useState(false);
+  const [email, setEmail] = useState("");
 
   const fetchUserActivity = useCallback(async () => {
     setLoading(true);
     try {
-      const user = auth.currentUser;
-      if (!user) {
-        notify("Error", "Please log in to view your profile.");
-        return;
-      }
-
-      // Fetch user details
-      const userDocRef = doc(db, "users", user.uid);
-      const userDocSnap = await getDoc(userDocRef);
-      if (userDocSnap.exists()) {
-        setUserDetails(userDocSnap.data());
-      } else {
-        setUserDetails({
-          name: "",
-          gender: "",
-          age: "",
-          phone: "",
-          address: "",
-          dob: "",
-        }); // Default if no data exists
-      }
-
-      // Fetch sold coupons
-      const soldQuery = query(
-        collection(db, "coupons"),
-        where("userId", "==", user.uid),
-        where("type", "==", "sell")
-      );
-      const soldSnapshot = await getDocs(soldQuery);
-      const soldList = [];
-      soldSnapshot.forEach((doc) => {
-        soldList.push({ id: doc.id, ...doc.data() });
+      const [profile, sold, bought] = await Promise.all([
+        getProfile(),
+        listMyCoupons(),
+        listPurchases(),
+      ]);
+      setEmail(profile.email);
+      setUserDetails({
+        name: profile.name,
+        gender: profile.gender,
+        age: profile.age,
+        phone: profile.phone,
+        address: profile.address,
+        dob: profile.dob,
       });
-      setSoldCoupons(soldList);
-
-      // Fetch bought coupons
-      const boughtQuery = query(
-        collection(db, "transactions"),
-        where("buyerId", "==", user.uid),
-        where("type", "==", "buy")
-      );
-      const boughtSnapshot = await getDocs(boughtQuery);
-      const boughtList = [];
-      boughtSnapshot.forEach((doc) => {
-        boughtList.push({ id: doc.id, ...doc.data() });
-      });
-      setBoughtCoupons(boughtList);
+      setSoldCoupons(sold);
+      setBoughtCoupons(bought);
     } catch (error) {
-      console.error("Error fetching user activity:", error.message);
-      notify("Error", "Failed to load profile data. Please try again.");
+      notify("Error", error.message || "Failed to load profile data. Please try again.");
     } finally {
       setLoading(false);
     }
@@ -107,12 +73,8 @@ const ProfileScreen = ({ navigation }) => {
 
   const handleLogout = async () => {
     try {
-      await signOut(auth);
+      await logout();
       notify("Success", "Logged out successfully");
-      navigation.reset({
-        index: 0,
-        routes: [{ name: "Login" }],
-      });
     } catch (error) {
       notify("Error", error.message);
     }
@@ -126,17 +88,35 @@ const ProfileScreen = ({ navigation }) => {
 
   const saveUserDetails = async () => {
     try {
-      const user = auth.currentUser;
-      const userDocRef = doc(db, "users", user.uid);
-      await setDoc(userDocRef, userDetails, { merge: true });
+      const saved = await saveProfile(userDetails);
+      setUserDetails({
+        name: saved.name,
+        gender: saved.gender,
+        age: saved.age,
+        phone: saved.phone,
+        address: saved.address,
+        dob: saved.dob,
+      });
       setEditModalVisible(false);
       notify("Success", "Profile details saved!");
     } catch (error) {
-      console.error("Error saving user details:", error.message);
-      notify(
-        "Error",
-        "Failed to save profile details. Please try again."
-      );
+      notify("Error", error.message || "Failed to save profile details. Please try again.");
+    }
+  };
+
+  const handleWithdraw = async (coupon) => {
+    const confirmed = await confirmAction(
+      "Withdraw listing",
+      `Remove "${coupon.name}" from sale? Buyers will no longer see it.`,
+      "Withdraw"
+    );
+    if (!confirmed) return;
+    try {
+      await withdrawCoupon(coupon.id);
+      setSoldCoupons((prev) => prev.filter((c) => c.id !== coupon.id));
+      notify("Withdrawn", `${coupon.name} is no longer listed.`);
+    } catch (error) {
+      notify("Error", error.message || "Could not withdraw the listing.");
     }
   };
 
@@ -151,6 +131,14 @@ const ProfileScreen = ({ navigation }) => {
           ? new Date(item.expiryDate).toLocaleDateString()
           : "N/A"}
       </Text>
+      <TouchableOpacity
+        style={styles.withdrawButton}
+        onPress={() => handleWithdraw(item)}
+        accessibilityRole="button"
+        accessibilityLabel={`Withdraw ${item.name || "listing"}`}
+      >
+        <Text style={styles.withdrawText}>Withdraw listing</Text>
+      </TouchableOpacity>
     </View>
   );
 
@@ -167,7 +155,7 @@ const ProfileScreen = ({ navigation }) => {
         return (
           <View style={styles.profileCard}>
             <Text style={styles.info}>
-              Email: {auth.currentUser?.email || "N/A"}
+              Email: {email || "N/A"}
             </Text>
             <Text style={styles.info}>
               Name: {userDetails.name || "Not set"}
@@ -497,6 +485,19 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     alignItems: "center",
     marginBottom: 12,
+  },
+  withdrawButton: {
+    borderColor: "#EF4444",
+    borderWidth: 1,
+    paddingVertical: 8,
+    borderRadius: 8,
+    alignItems: "center",
+    marginTop: 12,
+  },
+  withdrawText: {
+    color: "#EF4444",
+    fontSize: 14,
+    fontWeight: "600",
   },
   logoutButton: {
     backgroundColor: "#EF4444",
