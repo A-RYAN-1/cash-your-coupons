@@ -20,9 +20,11 @@
 <p align="center">
   <img src="https://img.shields.io/badge/Expo-58-000020?logo=expo&logoColor=white" alt="Expo 58">
   <img src="https://img.shields.io/badge/React_Native-0.88-61DAFB?logo=react&logoColor=black" alt="React Native 0.88">
-  <img src="https://img.shields.io/badge/Firebase-11-FFCA28?logo=firebase&logoColor=black" alt="Firebase 11">
+  <img src="https://img.shields.io/badge/Express-4-000000?logo=express&logoColor=white" alt="Express 4">
+  <img src="https://img.shields.io/badge/PostgreSQL-Neon-4169E1?logo=postgresql&logoColor=white" alt="PostgreSQL on Neon">
   <img src="https://img.shields.io/badge/Node-22-5FA04E?logo=nodedotjs&logoColor=white" alt="Node 22">
-  <img src="https://img.shields.io/badge/Vercel-web-000000?logo=vercel&logoColor=white" alt="Hosted on Vercel">
+  <img src="https://img.shields.io/badge/Vercel-web-000000?logo=vercel&logoColor=white" alt="Web on Vercel">
+  <img src="https://img.shields.io/badge/Render-API-46E3B7?logo=render&logoColor=black" alt="API on Render">
 </p>
 
 <p align="center">
@@ -31,7 +33,7 @@
   </a>
 </p>
 
-<p align="center"><sub>Last updated: 2026-10-17 &middot; Live on free tiers (Vercel for the web build, Firebase for the backend); also runs in Expo Go</sub></p>
+<p align="center"><sub>Last updated: 2026-10-18 &middot; Live on free tiers (Vercel for the web build, Render for the API, Neon for Postgres); also runs in Expo Go</sub></p>
 
 ---
 
@@ -55,8 +57,8 @@ Gift cards, promo codes and vouchers often expire unused because the person who 
 use for them. Cash Your Coupons lets that person list the coupon with a price and an expiry date,
 and lets someone else buy it, so the value is used instead of lost.
 
-Accounts, listings and purchase records live in Firebase (Authentication and Firestore); the app
-is a React Native client built with Expo.
+Accounts, listings and purchase records live in PostgreSQL behind an Express API (`server/`); the app
+is a React Native client built with Expo that talks to it through one small module (`api.js`).
 
 ## Try it live
 
@@ -67,7 +69,7 @@ Open **https://cash-your-coupons.vercel.app** and sign in with the public demo a
 | `buyer-demo@cashyourcoupons.app` | `demo-pass-123` |
 
 It is a shared demo: anyone can sign in, and a purchase removes that coupon for everyone until the
-demo data is reset (see [Run it locally](#run-it-locally), `scripts/seed-demo.mjs`). Things to try
+demo data is reset (see [Run it locally](#run-it-locally), `npm run seed` in `server/`). The first request after the API has been idle can take about a minute, because the free Render plan sleeps. Things to try
 in the first two minutes:
 
 1. On **Buy**, see five coupons from a demo seller grouped by how soon they expire, and use the search box and the filter.
@@ -91,53 +93,55 @@ in the first two minutes:
 
 ## Features
 
-- **Email and password accounts**: sign up and sign in with Firebase Authentication.
-  - The session is kept between launches with AsyncStorage.
+- **Email and password accounts**: sign up and sign in; passwords are hashed with bcrypt and a signed login token is kept on the device (AsyncStorage), so a reload stays signed in.
 - **Sell**: list a coupon with name, value, details, category and expiry date.
   - Categories: Food, Clothes, Travel and others from the picker.
   - Expiry is chosen with a date picker.
 - **Buy**: browse other users' listings, sorted by soonest expiry, with search and filters.
   - Your own listings are not shown to you.
-  - A purchase runs as one Firestore transaction: it fails if the coupon is gone or expired.
+  - A purchase is one database transaction that locks the listing: it fails if the coupon is gone, expired or your own, and two buyers racing for one coupon cannot both win.
 - **Exchange**: search other users' coupons by category or price.
-- **Profile**: your details, your listings and your transactions, and sign out.
+- **Profile**: your details, your listings (each can be withdrawn after a confirmation), your purchases, and sign out.
 
 ## Why it exists
 
 A university project to build a complete mobile app against a real backend: authentication,
 a shared database, several screens and a purchase that must not sell the same coupon twice. It
-taught navigation in React Native and why a purchase belongs in a transaction.
+started on Firebase and was moved to its own API in October 2026, so the access rules live in code
+that is tested here instead of in a console that cannot be reviewed.
 
 ## How it works
 
 ```mermaid
 flowchart LR
-    App["Expo app (React Native)"] -->|sign in, sign up| Auth["Firebase Authentication"]
-    App -->|read and write| FS[("Cloud Firestore")]
-    FS --- C["coupons"]
-    FS --- T["transactions"]
-    FS --- U["users"]
+    App["Expo app (React Native, web build on Vercel)"] -->|HTTPS, Bearer token| API["Express API (Render)"]
+    API -->|SQL| DB[("PostgreSQL (Neon)")]
+    DB --- U["users"]
+    DB --- C["coupons"]
+    DB --- P["purchases"]
 ```
 
-What happens when a user buys a coupon (`BuyCouponsScreen`):
+What happens when a user buys a coupon (`POST /coupons/:id/buy`):
 
 ```mermaid
 sequenceDiagram
     actor B as Buyer
     participant A as App
-    participant F as Firestore
+    participant S as API
+    participant D as Postgres
     B->>A: press Buy
-    A->>F: runTransaction
-    F-->>A: coupon document
-    A->>A: reject if missing or expired
-    A->>F: set transactions/buyerId_couponId
-    A->>F: delete coupons/couponId
-    F-->>A: committed
+    A->>S: POST /coupons/id/buy
+    S->>D: BEGIN, SELECT ... FOR UPDATE
+    D-->>S: the listing, now locked
+    S->>S: reject if gone, own or expired
+    S->>D: mark sold, insert the purchase
+    D-->>S: COMMIT
+    S-->>A: 201 with the purchase
     A-->>B: confirmation, coupon leaves the list
 ```
 
-The read, the expiry check, the purchase record and the delete are one transaction, so two buyers
-cannot both get the same coupon.
+The row lock makes the check and the sale one step, and the purchase table's unique `coupon_id`
+is a second guard, so two buyers cannot both get the same coupon.
 
 ### Tech stack
 
@@ -145,32 +149,34 @@ cannot both get the same coupon.
 |---|---|
 | App | React Native 0.88 with Expo 58, React 19; runs on Android, iOS and the web (react-native-web) |
 | Navigation | React Navigation 7 (stack and bottom tabs) |
-| Backend | Firebase Authentication and Cloud Firestore (Firebase JS SDK 11) |
-| Quality | ESLint with the Expo config, `expo-doctor`, Android and web bundle check |
-| Hosting | Vercel (web build) and Firebase (Authentication, Firestore) |
+| API | Node 22, Express 4, `pg`, bcrypt, JWT, helmet, express-rate-limit |
+| Database | PostgreSQL 18 on Neon (free), schema in `server/database.sql` applied by `npm run migrate` |
+| Quality | ESLint and Prettier, 25 API tests against real Postgres, `expo-doctor`, Android and web bundle check, GitHub Actions CI |
+| Hosting | Vercel (web build), Render free web service (API), Neon (database) |
 | Toolchain | Node 22, pinned in `mise.toml` |
 
 ### Design decisions
 
-1. **Firebase instead of an own backend.** Auth, database and real-time rules with no server to run. Trade-off: the access rules live in the Firebase console, not in this repository, and the client does the business logic.
-2. **The purchase is a transaction.** It re-reads the coupon, checks expiry and deletes it atomically. Trade-off: the coupon is deleted on purchase, so there is no history of the listing itself, only the transaction record.
-3. **One codebase for phone and browser.** `firebase.js` (native, session kept in AsyncStorage) and `firebase.web.js` (browser SDK) are picked per platform by Metro, and `notify.js` replaces `Alert`, which does nothing on the web. Trade-off: two small platform files to keep in step.
-4. **All Firebase settings from environment variables.** `config.js` reads `EXPO_PUBLIC_*` values and fails on startup with the list of missing ones. Trade-off: Expo inlines them into the app, so they are public (they identify the project; Firestore rules and Authentication protect the data).
+1. **An own API instead of Firebase.** Rules, validation and the purchase transaction are code in this repository, with tests, and a new feature never waits on a console. Trade-off: a server to host, which on the free plan sleeps after 15 minutes idle.
+2. **The purchase is a locked transaction.** The listing row is locked, checked, marked sold and the purchase recorded in one step. Sold and withdrawn listings stay in the table, so there is history.
+3. **One codebase for phone and browser.** `api.js` is the only network module, the session token is kept in AsyncStorage on every platform, and `notify.js` replaces `Alert` and `confirm`, which differ on the web. Trade-off: the token lives in storage the app can read, not an httpOnly cookie; acceptable for a demo, a gap to close for real money.
+4. **Settings from environment variables.** The app reads `EXPO_PUBLIC_API_URL` (public by design) and fails on startup if it is missing; the API reads its secrets from its own environment and refuses to start without them.
 
 <details>
 <summary><strong>Project structure</strong></summary>
 
 ```
-App.js              navigation: login stack and the four tabs
-firebase.js         Firebase app, Auth (persisted) and Firestore, native
-firebase.web.js     the same for the browser build
-scripts/seed-demo.mjs  creates the demo accounts and coupons
-vercel.json         build and output settings for the web deploy
-config.js           Firebase settings from environment variables
-notify.js           one alert function for native and web
+App.js              navigation: login stack or the four tabs, chosen by the saved session
+api.js              every call to the API and the saved login token
+config.js           the API address from EXPO_PUBLIC_API_URL
+notify.js           alert and confirm for native and web
 screens/            Login, Buy, Sell, Exchange, Profile
+server/             the API: app.js (routes), validation.js, database.sql, seed.js, test/
+compose.yaml        a local Postgres for the API and its tests
+render.yaml         Render blueprint for the API
+vercel.json         build and output settings for the web deploy
 mise.toml           Node version pin
-.env.example        every setting with a comment
+.env.example        the app's setting; server/.env.example the API's
 ```
 
 </details>
@@ -179,37 +185,46 @@ mise.toml           Node version pin
 
 | Area | What is in place |
 |---|---|
-| Lint | ESLint (Expo config) clean of errors on 2026-10-17; two hook-dependency warnings remain |
-| Build check | `npm run check` runs lint, `expo-doctor` (20 of 20 checks) and exports the Android (Hermes) and web bundles; passed on 2026-10-17 |
-| Browser run | on 2026-10-17 the live site was driven in Chrome (Playwright): sign in, the Buy list, a purchase as one Firestore transaction (the coupon left the list and showed under Profile), and all four tabs; a wrong login showed `auth/invalid-credential` |
-| Firebase project | on 2026-10-17 a read-only probe showed the project answers and refuses unauthenticated reads of `coupons` |
-| Secrets | none in the repository; Firebase settings come from the environment |
-| Not covered | no automated tests, no CI, not run on a physical phone, dependency audit not clean (see below) |
+| API tests | 25 tests (`server/test`) on real Postgres: validation, auth, ownership, withdraw, the buy transaction including a race for one coupon; pass on 2026-10-18 |
+| Lint and format | ESLint (app and API) clean of errors, Prettier clean on the API, 2026-10-18; two hook-dependency warnings remain in the app |
+| Build check | `npm run check` (lint, `expo-doctor`, Android Hermes and web bundles) passed on 2026-10-18 |
+| Browser run | on 2026-10-18 the live site was driven in Chrome (Playwright): a wrong password refused, the Buy list, a purchase (the coupon left the list and showed under Profile), a reload that kept the session, and a seller withdrawing a listing |
+| Security | bcrypt passwords, signed expiring tokens, helmet, CORS limited to the web origin, rate limit on login and register, JSON errors without stack traces, parameterised SQL; `npm audit --omit=dev` found 0 in the API on 2026-10-18 |
+| CI | GitHub Actions runs the API job (lint, format, migrate, tests, audit) and the app job (lint, `expo-doctor`, web export) on every push |
+| Not covered | no screen tests, not run on a physical phone, no uptime check yet |
 
 Run the checks:
 
 ```bash
-npm run lint
-npm run check
+npm run lint && npm run check          # the app (set EXPO_PUBLIC_API_URL first)
+cd server && npm run lint && npm test  # the API (needs the local Postgres below)
 ```
 
 ## Run it locally
 
-Works on Windows (Git Bash), macOS and Linux. You need **Node 22** (`mise.toml` pins it; [mise](https://mise.jdx.dev) installs it, or install Node 22 yourself) and a Firebase project of your own with Email/Password sign-in and Firestore enabled.
+Works on Windows (Git Bash), macOS and Linux. You need **Node 22** (`mise.toml` pins it; [mise](https://mise.jdx.dev) installs it, or install Node 22 yourself) and **Docker** for the local database.
 
 ```bash
 git clone https://github.com/A-RYAN-1/cash-your-coupons.git
 cd cash-your-coupons
 mise install
-mise exec -- npm ci
-cp .env.example .env              # then put your Firebase web app settings in .env
-set -a; . ./.env; set +a          # Git Bash and Linux; in PowerShell set each variable with $env:NAME="value"
-mise exec -- npm run check        # lint, expo-doctor, Android and web bundles; no device needed
-mise exec -- npx expo start       # scan the QR code with Expo Go on your phone
-mise exec -- npm run web          # or open it in the browser
-```
+docker compose up -d db                 # Postgres on localhost:5433
 
-To fill your own Firebase project with the demo accounts and coupons: `node scripts/seed-demo.mjs` (with the variables loaded). It never deletes; it adds the coupons that are missing.
+cd server
+mise exec -- npm ci
+cp .env.example .env                    # the defaults work with the compose database
+mise exec -- npm run migrate            # creates the tables
+mise exec -- npm run seed               # demo accounts and five coupons
+mise exec -- npm start                  # API on http://localhost:5000
+mise exec -- npm test                   # optional: the API tests
+
+cd ..                                   # the app, in a second terminal
+mise exec -- npm ci
+cp .env.example .env                    # EXPO_PUBLIC_API_URL points at localhost:5000
+set -a; . ./.env; set +a                # Git Bash and Linux; in PowerShell set $env:EXPO_PUBLIC_API_URL
+mise exec -- npm run web                # open it in the browser
+mise exec -- npx expo start             # or scan the QR code with Expo Go (use your computer's address instead of localhost)
+```
 
 The project is on Expo SDK 58, the version the store's Expo Go opens, so no native build or Android
 SDK is needed. When Expo Go moves on to a newer SDK, upgrade with `npx expo install expo@latest --fix`.
@@ -217,70 +232,80 @@ SDK is needed. When Expo Go moves on to a newer SDK, upgrade with `npx expo inst
 <details>
 <summary><strong>Common problems</strong></summary>
 
-- `Missing Firebase settings: apiKey, ...`: the variables are not in the environment; load `.env` as shown above before `expo start`.
-- `Firebase: Error (auth/invalid-credential)`: wrong email or password, or the account does not exist in your Firebase project.
-- `permission-denied` on the Buy or Sell screen: your Firestore security rules do not allow signed-in users to read and write `coupons`.
-- `The query requires an index`: the Buy screen filters on `userId` and `type`; open the link in the error to create the index in the Firebase console.
+- `Missing EXPO_PUBLIC_API_URL`: the variable is not in the environment; load `.env` as shown above before `expo start`.
+- `Cannot reach the server`: the API is not running (or, on the live site, is waking up; wait a minute and retry). On a phone, `localhost` is the phone, so use your computer's network address in `EXPO_PUBLIC_API_URL` and add the web origin to `CORS_ORIGINS` if you test in a browser.
+- `Missing required environment variable DATABASE_URL`: copy `server/.env.example` to `server/.env`.
+- `connect ECONNREFUSED 127.0.0.1:5433`: the database is not up; run `docker compose up -d db`.
 
 </details>
 
 ## Environment variables
 
+**App** (`.env`):
+
 | Variable | What it is | Needed |
 |---|---|---|
-| `EXPO_PUBLIC_FIREBASE_API_KEY` | web API key of your Firebase app | always |
-| `EXPO_PUBLIC_FIREBASE_AUTH_DOMAIN` | `<project>.firebaseapp.com` | always |
-| `EXPO_PUBLIC_FIREBASE_PROJECT_ID` | Firebase project id | always |
-| `EXPO_PUBLIC_FIREBASE_STORAGE_BUCKET` | storage bucket name | always (unused by the screens today) |
-| `EXPO_PUBLIC_FIREBASE_MESSAGING_SENDER_ID` | sender id | always |
-| `EXPO_PUBLIC_FIREBASE_APP_ID` | app id | always |
+| `EXPO_PUBLIC_API_URL` | address of the API, no trailing slash | always |
 
-They are found in the Firebase console under Project settings, Your apps. They are not secrets (the
-client SDK needs them and Expo inlines them), but they are kept out of the code and configured per
-environment. Never commit a real `.env` file; only `.env.example` is tracked.
+**API** (`server/.env`, see `server/.env.example`):
+
+| Variable | What it is | Needed |
+|---|---|---|
+| `DATABASE_URL` | Postgres connection string | always |
+| `JWT_SECRET` | random string of 32 or more characters that signs login tokens | always |
+| `JWT_EXPIRES_IN` | how long a login lasts, default `7d` | optional |
+| `PORT` | port to listen on, default 5000 (Render sets it) | optional |
+| `CORS_ORIGINS` | comma-separated web origins allowed to call the API | when a browser app is hosted elsewhere |
+| `DATABASE_SSL` | `true` for a database that needs TLS (Neon) | hosted |
+
+The app's address is public (the browser calls it). The API's secrets stay in its host's
+environment. Never commit a real `.env`; only the `.env.example` files are tracked.
 
 ## Deployment
 
-The web build is live at **https://cash-your-coupons.vercel.app** on Vercel Hobby (free), and the
-backend is a Firebase project (Authentication and Firestore, free Spark plan). Phones use Expo Go
-against the same backend.
+The web build is live at **https://cash-your-coupons.vercel.app** on Vercel Hobby (free). It calls
+the API at **https://cash-your-coupons-api.onrender.com** (Render free web service, Singapore), which
+uses a Neon Postgres database (free, Singapore). Phones use Expo Go against the same API.
 
-| Part | Host | Deploys | Variables the host needs |
+| Part | Host | Deploys | Settings the host needs |
 |---|---|---|---|
-| Web build | Vercel project `cash-your-coupons` (Git-linked to this repo) | on every push to `main`: `npm ci`, then `npx expo export --platform web --output-dir dist` (`vercel.json`) | the six `EXPO_PUBLIC_FIREBASE_*` variables, set for Production and Preview (the API key as a "config" variable, since it is public) |
-| Backend | Firebase (Spark plan) | managed in the Firebase console | n/a |
+| Web build | Vercel project `cash-your-coupons` (Git-linked to this repo) | on every push to `main`: `npm ci`, then `npx expo export --platform web --output-dir dist` (`vercel.json`) | `EXPO_PUBLIC_API_URL` for Production and Preview |
+| API | Render web service `cash-your-coupons-api` (`render.yaml`, root `server`) | on every push to `main`: `npm ci && npm run migrate`, then `npm start`; health check `/health` | `DATABASE_URL`, `JWT_SECRET`, `CORS_ORIGINS`, `DATABASE_SSL` |
+| Database | Neon project `cash-your-coupons-db` | schema applied by `npm run migrate` on every API deploy | n/a |
 
-Free-tier limits a visitor notices (checked 2026-10-17): none for this demo; Firebase Spark has daily
-read and write quotas, which a demo does not reach.
+Free-tier limits a visitor notices (checked 2026-10-18): the API sleeps after 15 minutes without
+traffic and the first request takes about a minute to wake it; Neon Free allows 1 GB and 100
+compute-hours a month, far above a demo.
 
 <details>
-<summary><strong>Recreate the Vercel deploy from nothing</strong></summary>
+<summary><strong>Recreate the deploy from nothing</strong></summary>
 
-1. `vercel link --yes --project cash-your-coupons`, then delete the `.env.local` it creates.
-2. Add each `EXPO_PUBLIC_FIREBASE_*` variable for production and preview (`vercel env add NAME production`; for the API key add `--type config`).
-3. `vercel deploy --prod`, then `vercel git connect` so pushes deploy.
+1. Create a Neon Postgres database; copy its connection string.
+2. On Render, create a free Node web service from this repo with root directory `server`, build `npm ci && npm run migrate`, start `npm start`, and the four API settings above.
+3. On Vercel, import the repo, set `EXPO_PUBLIC_API_URL` to the Render URL for Production and Preview, and deploy.
+4. Run `npm run seed` in `server/` with the database variables to create the demo accounts.
 
 </details>
 
 ## Status and roadmap
 
-**Reached:** live on free tiers (2026-10-17). Upgraded from Expo 52 to 58, `npm run check` passes, and the live site was exercised end to end as the demo buyer (sign in, browse, buy, profile). Firestore refuses unauthenticated reads. **Not reached:** a run on a physical phone.
+**Reached:** live on free tiers (2026-10-18) on an own API and database; the live site was exercised end to end in a browser (sign in, browse, buy, profile, reload, withdraw); 25 API tests and CI. **Not reached:** a run on a physical phone.
 
 **Known limitations**
 
-- The Firestore security rules are not in this repository, so who may read or write which documents is not reviewable here.
-- A seller cannot delete a listing: the Firestore rules (set in the console, not in this repository) refuse it, so a listing can only leave by being bought.
+- The login token is kept in app storage, not an httpOnly cookie, and there is no password reset or email check.
 - The Exchange screen only searches for matching coupons; it does not carry out an exchange.
 - A coupon has no redeemable code field: the app lists and transfers the listing, not the voucher itself.
-- Buying deletes the coupon document, so a listing leaves no history besides the transaction record.
-- `npm audit` reports high-severity findings in transitive dependencies of Expo and Firebase; not fixed in the baseline.
-- No automated tests and no CI; two lint hook-dependency warnings.
+- Money is not handled: a purchase marks the coupon sold, with no payment.
+- `npm audit` reports high-severity findings in transitive dependencies of Expo for the app (the API is clean); not fixed yet.
+- No screen tests and no uptime check; two lint hook-dependency warnings.
 
 **Planned**
 
-- [ ] Export the Firestore rules into the repository and tighten them (owner-only edits).
-- [ ] Let a seller withdraw a listing (rules and a button).
-- [ ] Tests for the buy transaction against the Firestore emulator, and CI.
+- [x] Move off Firebase to an own API with tests (2026-10-18).
+- [x] Let a seller withdraw a listing (2026-10-18).
+- [ ] An uptime check on `/health`.
+- [ ] Lighthouse accessibility and performance pass.
 - [ ] Make Exchange create an exchange offer.
 
 ## Credits
