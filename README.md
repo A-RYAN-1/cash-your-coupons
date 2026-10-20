@@ -149,7 +149,7 @@ is a second guard, so two buyers cannot both get the same coupon.
 |---|---|
 | App | React Native 0.88 with Expo 58, React 19; runs on Android, iOS and the web (react-native-web) |
 | Navigation | React Navigation 7 (stack and bottom tabs) |
-| API | Node 22, Express 4, `pg`, bcrypt, JWT, helmet, express-rate-limit |
+| API | Node 22, Express 5, `pg`, bcrypt, JWT, helmet, express-rate-limit |
 | Database | PostgreSQL 18 on Neon (free), schema in `server/database.sql` applied by `npm run migrate` |
 | Quality | ESLint and Prettier, 25 API tests against real Postgres, `expo-doctor`, Android and web bundle check, GitHub Actions CI |
 | Hosting | Vercel (web build), Render free web service (API), Neon (database) |
@@ -189,7 +189,7 @@ mise.toml           Node version pin
 | Lint and format | ESLint (app and API) clean of errors, Prettier clean on the API, 2026-10-18; two hook-dependency warnings remain in the app |
 | Build check | `npm run check` (lint, `expo-doctor`, Android Hermes and web bundles) passed on 2026-10-18 |
 | Browser run | on 2026-10-18 the live site was driven in Chrome (Playwright): a wrong password refused, the Buy list, a purchase (the coupon left the list and showed under Profile), a reload that kept the session, and a seller withdrawing a listing |
-| Security | bcrypt passwords, signed expiring tokens, helmet, CORS limited to the web origin, rate limit on login and register, JSON errors without stack traces, parameterised SQL; `npm audit --omit=dev` found 0 in the API on 2026-10-18 |
+| Security | bcrypt passwords, signed expiring tokens, helmet, CORS limited to the web origin, a rate limit on every route and a stricter one on login and register, JSON errors without stack traces, parameterised SQL; `npm audit --omit=dev` found 0 in the API on 2026-10-18 |
 | CI | GitHub Actions runs the API job (lint, format, migrate, tests, audit) and the app job (lint, `expo-doctor`, web export) on every push |
 | Monitoring and scanning | an Uptime workflow pings the API `/health` and the app every 30 minutes, CodeQL scans on every push and weekly, and Dependabot opens weekly version-update pull requests (workflows added 2026-10-20) |
 | Not covered | no screen tests, not run on a physical phone |
