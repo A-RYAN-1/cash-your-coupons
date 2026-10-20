@@ -191,7 +191,8 @@ mise.toml           Node version pin
 | Browser run | on 2026-10-18 the live site was driven in Chrome (Playwright): a wrong password refused, the Buy list, a purchase (the coupon left the list and showed under Profile), a reload that kept the session, and a seller withdrawing a listing |
 | Security | bcrypt passwords, signed expiring tokens, helmet, CORS limited to the web origin, rate limit on login and register, JSON errors without stack traces, parameterised SQL; `npm audit --omit=dev` found 0 in the API on 2026-10-18 |
 | CI | GitHub Actions runs the API job (lint, format, migrate, tests, audit) and the app job (lint, `expo-doctor`, web export) on every push |
-| Not covered | no screen tests, not run on a physical phone, no uptime check yet |
+| Monitoring and scanning | an Uptime workflow pings the API `/health` and the app every 30 minutes, CodeQL scans on every push and weekly, and Dependabot opens weekly version-update pull requests (workflows added 2026-10-20) |
+| Not covered | no screen tests, not run on a physical phone |
 
 Run the checks:
 
@@ -298,13 +299,13 @@ compute-hours a month, far above a demo.
 - A coupon has no redeemable code field: the app lists and transfers the listing, not the voucher itself.
 - Money is not handled: a purchase marks the coupon sold, with no payment.
 - `npm audit` reports high-severity findings in transitive dependencies of Expo for the app (the API is clean); not fixed yet.
-- No screen tests and no uptime check; two lint hook-dependency warnings.
+- No screen tests; two lint hook-dependency warnings.
 
 **Planned**
 
 - [x] Move off Firebase to an own API with tests (2026-10-18).
 - [x] Let a seller withdraw a listing (2026-10-18).
-- [ ] An uptime check on `/health`.
+- [x] An uptime check on `/health`, CodeQL and Dependabot (2026-10-20).
 - [ ] Lighthouse accessibility and performance pass.
 - [ ] Make Exchange create an exchange offer.
 
