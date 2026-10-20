@@ -1,11 +1,25 @@
 # Weekly version-update pull requests. Minor and patch updates are grouped into one PR per ecosystem;
 # a major version opens its own PR so one incompatible upgrade cannot block the rest.
+# The app's Expo-managed packages are not proposed here: Expo SDK 58 pins their versions and
+# `expo-doctor` fails on any other, so they move with `npx expo install --fix` at an SDK upgrade.
+# Majors of the remaining app tooling wait for Expo's own config to support them.
 version: 2
 updates:
   - package-ecosystem: npm
     directory: /
     schedule:
       interval: weekly
+    ignore:
+      - dependency-name: "expo"
+      - dependency-name: "expo-*"
+      - dependency-name: "@expo/*"
+      - dependency-name: "react"
+      - dependency-name: "react-dom"
+      - dependency-name: "react-native"
+      - dependency-name: "react-native-*"
+      - dependency-name: "@react-native-*/*"
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
     groups:
       app:
         patterns: ["*"]
@@ -19,6 +33,9 @@ updates:
       server:
         patterns: ["*"]
         update-types: ["minor", "patch"]
+      eslint:
+        patterns: ["eslint", "@eslint/js"]
+        update-types: ["major"]
 
   - package-ecosystem: github-actions
     directory: /

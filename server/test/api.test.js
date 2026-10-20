@@ -54,6 +54,13 @@ test.after(async () => {
   await pool.end();
 });
 
+test("every route is rate limited per client", async () => {
+  const limited = createApp({ apiLimit: 3 });
+  for (let i = 0; i < 3; i++) await request(limited).get("/categories").expect(200);
+  const res = await request(limited).get("/categories").expect(429);
+  assert.equal(res.body.error, "Too many requests, slow down");
+});
+
 test("health reports the database", async () => {
   const res = await request(app).get("/health").expect(200);
   assert.equal(res.body.status, "ok");

@@ -39,7 +39,7 @@ const toPurchase = (row) => ({
   createdAt: row.created_at,
 });
 
-function createApp({ authLimit = 20 } = {}) {
+function createApp({ authLimit = 20, apiLimit = 300 } = {}) {
   const app = express();
   app.set("trust proxy", 1);
   app.disable("x-powered-by");
@@ -64,6 +64,17 @@ function createApp({ authLimit = 20 } = {}) {
     });
     next();
   });
+
+  // A generous ceiling per client for every route; login and register get the stricter one below.
+  app.use(
+    rateLimit({
+      windowMs: 15 * 60 * 1000,
+      limit: apiLimit,
+      standardHeaders: true,
+      legacyHeaders: false,
+      message: { error: "Too many requests, slow down" },
+    })
+  );
 
   const authRateLimit = rateLimit({
     windowMs: 15 * 60 * 1000,
