@@ -1,285 +1,136 @@
-import React, { useState, useRef } from "react";
-import {
-  View,
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  SafeAreaView,
-  KeyboardAvoidingView,
-  Platform,
-} from "react-native";
+import React, { useState } from "react";
+import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from "react-native";
 import { createCoupon } from "../api";
-import { notify } from "../notify";
-import { Picker } from "@react-native-picker/picker";
+import { showError, showSuccess } from "../notify";
+import { Button, ChipRow, Field, Page, Screen } from "../ui";
+import { space, type, useTheme } from "../theme";
+
+export const CATEGORIES = [
+  "Food",
+  "Clothes",
+  "Travel",
+  "Electronics",
+  "Online Gaming",
+  "Beauty",
+  "Health & Wellness",
+  "Others",
+];
+
+const pad = (n) => String(n).padStart(2, "0");
+const formatDate = (date) => `${pad(date.getDate())}-${pad(date.getMonth() + 1)}-${date.getFullYear()}`;
+
+// "In 1 week" style shortcuts for the common expiry windows.
+const SHORTCUTS = [
+  { label: "1 week", days: 7 },
+  { label: "1 month", days: 30 },
+  { label: "3 months", days: 90 },
+];
+
+const parseDate = (text) => {
+  const [day, month, year] = text.split("-").map(Number);
+  if (!day || !month || !year || month > 12 || day > 31 || year < 2025 || year > 2100) return null;
+  const date = new Date(year, month - 1, day, 23, 59, 59);
+  if (date.getMonth() !== month - 1) return null;
+  return date > new Date() ? date : null;
+};
 
 const SellCouponsScreen = () => {
-  const [couponName, setCouponName] = useState("");
-  const [couponValue, setCouponValue] = useState("");
-  const [couponDetails, setCouponDetails] = useState("");
+  const t = useTheme();
+  const [name, setName] = useState("");
+  const [value, setValue] = useState("");
+  const [details, setDetails] = useState("");
   const [category, setCategory] = useState("");
-  const [expiryDate, setExpiryDate] = useState(""); // Changed to string for DD-MM-YYYY input
+  const [expiry, setExpiry] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  const couponNameRef = useRef(null);
-  const couponValueRef = useRef(null);
-  const couponDetailsRef = useRef(null);
-
-  const categories = [
-    "Food",
-    "Clothes",
-    "Travel",
-    "Electronics",
-    "Online Gaming",
-    "Beauty",
-    "Health & Wellness",
-    "Others",
-  ];
-
-  const parseDate = (dateStr) => {
-    const [day, month, year] = dateStr.split("-").map(Number);
-    if (
-      !day ||
-      !month ||
-      !year ||
-      day < 1 ||
-      day > 31 ||
-      month < 1 ||
-      month > 12 ||
-      year < 2025 ||
-      year > 2100
-    ) {
-      return null;
-    }
-    const date = new Date(year, month - 1, day, 23, 59, 59); // Set to 23:59:59
-    return date > new Date() ? date : null; // Ensure future date
-  };
-
-  const handleAddCoupon = async () => {
-    if (
-      !couponName ||
-      !couponValue ||
-      !couponDetails ||
-      !category ||
-      !expiryDate
-    ) {
-      notify("Incomplete", "Please fill in all fields");
+  const submit = async () => {
+    if (!name.trim() || !value || !details.trim() || !category || !expiry) {
+      showError("Fill in every field before listing the coupon.");
       return;
     }
-
-    const parsedDate = parseDate(expiryDate);
-    if (!parsedDate) {
-      notify(
-        "Invalid Date",
-        "Please enter a valid future date in DD-MM-YYYY format (e.g., 11-04-2025)"
-      );
+    const price = parseFloat(value);
+    if (!(price > 0)) {
+      showError("Enter a price above zero.");
       return;
     }
-
+    const date = parseDate(expiry);
+    if (!date) {
+      showError("Enter a future expiry date as DD-MM-YYYY, for example 11-04-2027.");
+      return;
+    }
+    setBusy(true);
     try {
       await createCoupon({
-        name: couponName,
-        value: parseFloat(couponValue),
-        details: couponDetails,
-        expiryDate: parsedDate.toISOString(),
+        name: name.trim(),
+        value: price,
+        details: details.trim(),
+        expiryDate: date.toISOString(),
         category,
       });
-      setCouponName("");
-      setCouponValue("");
-      setCouponDetails("");
+      setName("");
+      setValue("");
+      setDetails("");
       setCategory("");
-      setExpiryDate("");
-      notify("Success", "Coupon listed for sale!");
-      if (couponNameRef.current) couponNameRef.current.focus();
+      setExpiry("");
+      showSuccess("Your coupon is listed. Find it under Profile, Selling.");
     } catch (error) {
-      notify("Error", error.message || "Failed to add coupon. Try again.");
+      showError(error.message);
+    } finally {
+      setBusy(false);
     }
   };
 
-  const renderForm = () => (
-    <KeyboardAvoidingView
-      style={styles.formContainer}
-      behavior={Platform.OS === "ios" ? "padding" : "height"}
-      keyboardVerticalOffset={Platform.OS === "ios" ? 100 : 0}
-    >
-      <Text style={styles.label}>Title</Text>
-      <TextInput
-        ref={couponNameRef}
-        style={styles.input}
-        placeholder="Enter the name of the brand"
-        value={couponName}
-        onChangeText={setCouponName}
-        returnKeyType="next"
-        onSubmitEditing={() => couponValueRef.current?.focus()}
-        blurOnSubmit={false}
-        autoFocus={true}
-      />
-
-      <Text style={styles.label}>Category</Text>
-      <View style={styles.pickerContainer}>
-        <Picker
-          selectedValue={category}
-          onValueChange={setCategory}
-          style={styles.picker}
-        >
-          <Picker.Item label="Select a category" value="" enabled={false} />
-          {categories.map((cat, index) => (
-            <Picker.Item key={index} label={cat} value={cat} />
-          ))}
-        </Picker>
-      </View>
-
-      <Text style={styles.label}>Price (₹)</Text>
-      <TextInput
-        ref={couponValueRef}
-        style={styles.input}
-        placeholder="Enter price at which you want to sell"
-        value={couponValue}
-        onChangeText={setCouponValue}
-        keyboardType="numeric"
-        returnKeyType="next"
-        onSubmitEditing={() => couponDetailsRef.current?.focus()}
-        blurOnSubmit={false}
-      />
-
-      <Text style={styles.label}>Expiry Date</Text>
-      <TextInput
-        style={styles.input}
-        placeholder="Enter expiry date (DD-MM-YYYY)"
-        value={expiryDate}
-        onChangeText={setExpiryDate}
-        keyboardType="numeric"
-        maxLength={10} // DD-MM-YYYY format
-        returnKeyType="next"
-        onSubmitEditing={() => couponDetailsRef.current?.focus()}
-        blurOnSubmit={false}
-      />
-
-      <Text style={styles.label}>Description</Text>
-      <TextInput
-        ref={couponDetailsRef}
-        style={[styles.input, styles.multilineInput]}
-        placeholder="Enter coupon details like percentage off, terms, etc."
-        value={couponDetails}
-        onChangeText={setCouponDetails}
-        multiline
-        numberOfLines={4}
-        returnKeyType="done"
-        onSubmitEditing={handleAddCoupon}
-        blurOnSubmit={false}
-      />
-
-      <TouchableOpacity style={styles.submitButton} onPress={handleAddCoupon}>
-        <Text style={styles.buttonText}>Submit</Text>
-      </TouchableOpacity>
-
-      <View style={styles.divider} />
-    </KeyboardAvoidingView>
-  );
-
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Text style={styles.headerText}>Sell Coupons</Text>
-      </View>
-      <View style={styles.content}>{renderForm()}</View>
-    </SafeAreaView>
+    <Screen title="Sell" subtitle="List a coupon you will not use">
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+        <Page>
+          <Field label="Brand or coupon name" value={name} onChangeText={setName} placeholder="Swiggy, Myntra, Amazon" maxLength={80} />
+
+          <View style={styles.group}>
+            <Text style={[type.label, { color: t.text }]}>Category</Text>
+            <ChipRow options={CATEGORIES} value={category} onChange={setCategory} />
+          </View>
+
+          <Field label="Price (INR)" value={value} onChangeText={setValue} keyboardType="decimal-pad" placeholder="250" />
+
+          <View style={styles.group}>
+            <Field
+              label="Expiry date"
+              value={expiry}
+              onChangeText={setExpiry}
+              placeholder="DD-MM-YYYY"
+              keyboardType="numbers-and-punctuation"
+              maxLength={10}
+            />
+            <ChipRow
+              options={SHORTCUTS.map((s) => s.label)}
+              value=""
+              onChange={(label) => {
+                const days = SHORTCUTS.find((s) => s.label === label).days;
+                setExpiry(formatDate(new Date(Date.now() + days * 24 * 60 * 60 * 1000)));
+              }}
+            />
+          </View>
+
+          <Field
+            label="Details"
+            value={details}
+            onChangeText={setDetails}
+            multiline
+            placeholder="What it gives, minimum order, terms"
+            maxLength={500}
+          />
+
+          <Button label="List coupon" onPress={submit} loading={busy} />
+        </Page>
+      </KeyboardAvoidingView>
+    </Screen>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#F9FAFB",
-  },
-  header: {
-    padding: 16,
-    backgroundColor: "#4F46E5",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 5,
-    zIndex: 10,
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-  },
-  headerText: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    textAlign: "center",
-    fontFamily: "System",
-  },
-  content: {
-    marginTop: 70,
-    padding: 16,
-    flex: 1,
-  },
-  formContainer: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 16,
-    marginBottom: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1F2937",
-    marginBottom: 8,
-    fontFamily: "System",
-  },
-  input: {
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    fontSize: 16,
-    color: "#1F2937",
-    marginBottom: 16,
-    fontFamily: "System",
-  },
-  multilineInput: {
-    height: 120,
-    textAlignVertical: "top",
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    borderRadius: 12,
-    marginBottom: 16,
-    backgroundColor: "#FFFFFF",
-    overflow: "hidden",
-  },
-  picker: {
-    height: 48,
-    fontFamily: "System",
-  },
-  submitButton: {
-    backgroundColor: "#10B981",
-    padding: 14,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 16,
-  },
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: "System",
-  },
-  divider: {
-    height: 1,
-    backgroundColor: "#E5E7EB",
-    marginVertical: 24,
-  },
+  flex: { flex: 1 },
+  group: { gap: space.sm },
 });
 
 export default SellCouponsScreen;

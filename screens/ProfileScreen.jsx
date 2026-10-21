@@ -1,110 +1,72 @@
 import React, { useState, useEffect, useCallback } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  FlatList,
-  Modal,
-  TextInput,
-  SafeAreaView,
-  RefreshControl,
-} from "react-native";
-import {
-  getProfile,
-  saveProfile,
-  listMyCoupons,
-  listPurchases,
-  withdrawCoupon,
-  logout,
-} from "../api";
-import { notify, confirmAction } from "../notify";
+import { RefreshControl, StyleSheet, Text, View } from "react-native";
+import { getProfile, saveProfile, listMyCoupons, listPurchases, withdrawCoupon, logout } from "../api";
+import { showError, showSuccess, confirmAction } from "../notify";
+import { Button, Card, CouponCard, Dialog, EmptyState, Field, Loading, Page, Screen, Segmented, rupees } from "../ui";
+import { space, type, useTheme } from "../theme";
+
+const DETAILS = [
+  ["name", "Name"],
+  ["gender", "Gender"],
+  ["age", "Age"],
+  ["phone", "Phone"],
+  ["address", "Address"],
+  ["dob", "Date of birth"],
+];
+
+const pickDetails = (profile) =>
+  Object.fromEntries(DETAILS.map(([key]) => [key, profile[key] ?? ""]));
 
 const ProfileScreen = () => {
-  const [soldCoupons, setSoldCoupons] = useState([]);
-  const [boughtCoupons, setBoughtCoupons] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [showSoldDetails, setShowSoldDetails] = useState(false);
-  const [showBoughtDetails, setShowBoughtDetails] = useState(false);
-  const [userDetails, setUserDetails] = useState({
-    name: "",
-    gender: "",
-    age: "",
-    phone: "",
-    address: "",
-    dob: "", // Date of Birth in DD-MM-YYYY
-  });
-  const [editModalVisible, setEditModalVisible] = useState(false);
+  const t = useTheme();
   const [email, setEmail] = useState("");
+  const [details, setDetails] = useState(null);
+  const [selling, setSelling] = useState([]);
+  const [bought, setBought] = useState([]);
+  const [tab, setTab] = useState("selling");
+  const [refreshing, setRefreshing] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [saving, setSaving] = useState(false);
 
-  const fetchUserActivity = useCallback(async () => {
-    setLoading(true);
+  const load = useCallback(async () => {
     try {
-      const [profile, sold, bought] = await Promise.all([
-        getProfile(),
-        listMyCoupons(),
-        listPurchases(),
-      ]);
+      const [profile, sold, purchases] = await Promise.all([getProfile(), listMyCoupons(), listPurchases()]);
       setEmail(profile.email);
-      setUserDetails({
-        name: profile.name,
-        gender: profile.gender,
-        age: profile.age,
-        phone: profile.phone,
-        address: profile.address,
-        dob: profile.dob,
-      });
-      setSoldCoupons(sold);
-      setBoughtCoupons(bought);
+      setDetails(pickDetails(profile));
+      setSelling(sold);
+      setBought(purchases);
     } catch (error) {
-      notify("Error", error.message || "Failed to load profile data. Please try again.");
-    } finally {
-      setLoading(false);
+      showError(error.message);
+      setDetails((current) => current ?? pickDetails({}));
     }
   }, []);
 
   useEffect(() => {
-    // Load on mount; the loader sets its own loading flag first.
+    // Load on mount; the loader sets state only after the requests return.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchUserActivity();
-  }, [fetchUserActivity]);
+    load();
+  }, [load]);
 
-  const handleLogout = async () => {
-    try {
-      await logout();
-      notify("Success", "Logged out successfully");
-    } catch (error) {
-      notify("Error", error.message);
-    }
-  };
-
-  const onRefresh = useCallback(async () => {
+  const refresh = async () => {
     setRefreshing(true);
-    await fetchUserActivity();
+    await load();
     setRefreshing(false);
-  }, [fetchUserActivity]);
+  };
 
-  const saveUserDetails = async () => {
+  const save = async () => {
+    setSaving(true);
     try {
-      const saved = await saveProfile(userDetails);
-      setUserDetails({
-        name: saved.name,
-        gender: saved.gender,
-        age: saved.age,
-        phone: saved.phone,
-        address: saved.address,
-        dob: saved.dob,
-      });
-      setEditModalVisible(false);
-      notify("Success", "Profile details saved!");
+      setDetails(pickDetails(await saveProfile(editing)));
+      setEditing(null);
+      showSuccess("Profile saved.");
     } catch (error) {
-      notify("Error", error.message || "Failed to save profile details. Please try again.");
+      showError(error.message);
+    } finally {
+      setSaving(false);
     }
   };
 
-  const handleWithdraw = async (coupon) => {
+  const withdraw = async (coupon) => {
     const confirmed = await confirmAction(
       "Withdraw listing",
       `Remove "${coupon.name}" from sale? Buyers will no longer see it.`,
@@ -113,471 +75,105 @@ const ProfileScreen = () => {
     if (!confirmed) return;
     try {
       await withdrawCoupon(coupon.id);
-      setSoldCoupons((prev) => prev.filter((c) => c.id !== coupon.id));
-      notify("Withdrawn", `${coupon.name} is no longer listed.`);
+      setSelling((list) => list.filter((c) => c.id !== coupon.id));
+      showSuccess(`${coupon.name} is no longer listed.`);
     } catch (error) {
-      notify("Error", error.message || "Could not withdraw the listing.");
+      showError(error.message);
     }
   };
 
-  const renderSoldCoupon = ({ item }) => (
-    <View style={styles.couponCard}>
-      <Text style={styles.couponName}>{item.name || "Unnamed"}</Text>
-      <Text style={styles.couponValue}>₹{item.value || "N/A"}</Text>
-      <Text style={styles.couponDetail}>{item.details || "No details"}</Text>
-      <Text style={styles.couponDetail}>
-        Expires:{" "}
-        {item.expiryDate
-          ? new Date(item.expiryDate).toLocaleDateString()
-          : "N/A"}
-      </Text>
-      <TouchableOpacity
-        style={styles.withdrawButton}
-        onPress={() => handleWithdraw(item)}
-        accessibilityRole="button"
-        accessibilityLabel={`Withdraw ${item.name || "listing"}`}
-      >
-        <Text style={styles.withdrawText}>Withdraw listing</Text>
-      </TouchableOpacity>
-    </View>
-  );
-
-  const renderBoughtCoupon = ({ item }) => (
-    <View style={styles.couponCard}>
-      <Text style={styles.couponName}>{item.couponName || "Unnamed"}</Text>
-      <Text style={styles.couponValue}>₹{item.couponValue || "N/A"}</Text>
-    </View>
-  );
-
-  const renderItem = ({ item }) => {
-    switch (item.type) {
-      case "profile":
-        return (
-          <View style={styles.profileCard}>
-            <Text style={styles.info}>
-              Email: {email || "N/A"}
-            </Text>
-            <Text style={styles.info}>
-              Name: {userDetails.name || "Not set"}
-            </Text>
-            <Text style={styles.info}>
-              Gender: {userDetails.gender || "Not set"}
-            </Text>
-            <Text style={styles.info}>Age: {userDetails.age || "Not set"}</Text>
-            <Text style={styles.info}>
-              Phone: {userDetails.phone || "Not set"}
-            </Text>
-            <Text style={styles.info}>
-              Address: {userDetails.address || "Not set"}
-            </Text>
-            <Text style={styles.info}>DOB: {userDetails.dob || "Not set"}</Text>
-            <TouchableOpacity
-              style={styles.editButton}
-              onPress={() => setEditModalVisible(true)}
-            >
-              <Text style={styles.buttonText}>Edit Profile</Text>
-            </TouchableOpacity>
-          </View>
-        );
-      case "sold":
-        return (
-          <View style={styles.section}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.sectionTitle}>
-                Coupons Listed for Sale
-              </Text>
-              <Text style={styles.countText}>{soldCoupons.length} Listed</Text>
-            </View>
-            <TouchableOpacity
-              style={styles.detailsButton}
-              onPress={() => setShowSoldDetails(!showSoldDetails)}
-            >
-              <Text style={styles.buttonText}>
-                {showSoldDetails ? "Hide Details ↑" : "View Details ↓"}
-              </Text>
-            </TouchableOpacity>
-            {showSoldDetails && (
-              <FlatList
-                data={soldCoupons}
-                renderItem={renderSoldCoupon}
-                keyExtractor={(item) => item.id}
-                scrollEnabled={false}
-                ListEmptyComponent={
-                  <Text style={styles.emptyText}>No coupons listed</Text>
-                }
-              />
-            )}
-          </View>
-        );
-      case "bought":
-        return (
-          <View style={styles.section}>
-            <View style={styles.summaryRow}>
-              <Text style={styles.sectionTitle}>Coupons Bought</Text>
-              <Text style={styles.countText}>
-                {boughtCoupons.length} Bought
-              </Text>
-            </View>
-            <TouchableOpacity
-              style={styles.detailsButton}
-              onPress={() => setShowBoughtDetails(!showBoughtDetails)}
-            >
-              <Text style={styles.buttonText}>
-                {showBoughtDetails ? "Hide Details ↑" : "View Details ↓"}
-              </Text>
-            </TouchableOpacity>
-            {showBoughtDetails && (
-              <FlatList
-                data={boughtCoupons}
-                renderItem={renderBoughtCoupon}
-                keyExtractor={(item) => item.id}
-                scrollEnabled={false}
-                ListEmptyComponent={
-                  <Text style={styles.emptyText}>No coupons bought</Text>
-                }
-              />
-            )}
-          </View>
-        );
-      case "logout":
-        return (
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.buttonText}>Logout</Text>
-          </TouchableOpacity>
-        );
-      default:
-        return null;
-    }
-  };
-
-  if (loading && !refreshing) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4F46E5" />
-        <Text style={styles.loadingText}>Loading profile... </Text>
-      </View>
-    );
-  }
+  if (details === null) return <Screen title="Profile"><Loading /></Screen>;
 
   return (
-    <SafeAreaView style={styles.safeArea}>
-      <View style={styles.header}>
-        <Text style={styles.headerText}>Profile</Text>
-      </View>
-      <FlatList
-        data={[
-          { type: "profile" },
-          { type: "sold" },
-          { type: "bought" },
-          { type: "logout" },
-        ]}
-        renderItem={renderItem}
-        keyExtractor={(item, index) => index.toString()}
-        contentContainerStyle={styles.content}
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-      />
-
-      <Modal
-        visible={editModalVisible}
-        animationType="slide"
-        transparent={true}
-        onRequestClose={() => setEditModalVisible(false)}
-      >
-        <View style={styles.modalContainer}>
-          <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Edit Profile</Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your name"
-              value={userDetails.name}
-              onChangeText={(text) =>
-                setUserDetails((prev) => ({ ...prev, name: text }))
-              }
-              autoCapitalize="words"
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your gender (e.g., Male/Female/Other)"
-              value={userDetails.gender}
-              onChangeText={(text) =>
-                setUserDetails((prev) => ({ ...prev, gender: text }))
-              }
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your age"
-              value={userDetails.age}
-              onChangeText={(text) =>
-                setUserDetails((prev) => ({ ...prev, age: text }))
-              }
-              keyboardType="numeric"
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your phone number"
-              value={userDetails.phone}
-              onChangeText={(text) =>
-                setUserDetails((prev) => ({ ...prev, phone: text }))
-              }
-              keyboardType="phone-pad"
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your address"
-              value={userDetails.address}
-              onChangeText={(text) =>
-                setUserDetails((prev) => ({ ...prev, address: text }))
-              }
-              autoCapitalize="sentences"
-            />
-            <TextInput
-              style={styles.input}
-              placeholder="Enter DOB (DD-MM-YYYY)"
-              value={userDetails.dob}
-              onChangeText={(text) =>
-                setUserDetails((prev) => ({ ...prev, dob: text }))
-              }
-              keyboardType="numeric"
-              maxLength={10}
-            />
-            <View style={styles.modalButtons}>
-              <TouchableOpacity
-                style={styles.cancelButton}
-                onPress={() => setEditModalVisible(false)}
-              >
-                <Text style={styles.buttonText}>Cancel</Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                style={styles.saveButton}
-                onPress={saveUserDetails}
-              >
-                <Text style={styles.buttonText}>Save</Text>
-              </TouchableOpacity>
-            </View>
+    <Screen title="Profile" subtitle={email}>
+      <Page refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+        <Card>
+          <View style={styles.cardHead}>
+            <Text style={[type.heading, { color: t.text }]}>Your details</Text>
+            <Button small variant="secondary" label="Edit" onPress={() => setEditing(details)} />
           </View>
+          {DETAILS.map(([key, label]) => (
+            <View key={key} style={[styles.row, { borderTopColor: t.border }]}>
+              <Text style={[type.caption, { color: t.muted }]}>{label}</Text>
+              <Text style={[type.body, styles.rowValue, { color: details[key] ? t.text : t.muted }]}>
+                {details[key] || "Not set"}
+              </Text>
+            </View>
+          ))}
+        </Card>
+
+        <Segmented
+          value={tab}
+          onChange={setTab}
+          options={[
+            { value: "selling", label: `Selling (${selling.length})` },
+            { value: "bought", label: `Bought (${bought.length})` },
+          ]}
+        />
+
+        {tab === "selling" ? (
+          selling.length === 0 ? (
+            <EmptyState title="Nothing listed" text="Coupons you list on the Sell tab appear here until someone buys them." />
+          ) : (
+            selling.map((coupon) => (
+              <CouponCard
+                key={coupon.id}
+                coupon={coupon}
+                action={<Button small variant="danger" label="Withdraw" onPress={() => withdraw(coupon)} />}
+              />
+            ))
+          )
+        ) : bought.length === 0 ? (
+          <EmptyState title="No purchases yet" text="Coupons you buy appear here." />
+        ) : (
+          bought.map((purchase) => (
+            <Card key={purchase.id}>
+              <View style={styles.cardHead}>
+                <Text style={[type.heading, { color: t.text }]}>{purchase.couponName}</Text>
+                <Text style={[type.heading, { color: t.accent }]}>{rupees(purchase.couponValue)}</Text>
+              </View>
+            </Card>
+          ))
+        )}
+
+        <Button label="Sign out" variant="secondary" onPress={logout} />
+      </Page>
+
+      <Dialog
+        visible={editing !== null}
+        title="Edit details"
+        onClose={() => setEditing(null)}
+        actions={
+          <>
+            <Button label="Cancel" variant="secondary" onPress={() => setEditing(null)} disabled={saving} />
+            <Button label="Save" onPress={save} loading={saving} />
+          </>
+        }
+      >
+        <View style={styles.form}>
+          {editing &&
+            DETAILS.map(([key, label]) => (
+              <Field
+                key={key}
+                label={label}
+                value={editing[key]}
+                onChangeText={(text) => setEditing((current) => ({ ...current, [key]: text }))}
+                keyboardType={key === "age" ? "number-pad" : key === "phone" ? "phone-pad" : "default"}
+                placeholder={key === "dob" ? "DD-MM-YYYY" : undefined}
+                maxLength={key === "dob" ? 10 : undefined}
+              />
+            ))}
         </View>
-      </Modal>
-    </SafeAreaView>
+      </Dialog>
+    </Screen>
   );
 };
 
 const styles = StyleSheet.create({
-  safeArea: {
-    flex: 1,
-    backgroundColor: "#F9FAFB",
-  },
-  content: {
-    marginTop: 70,
-    padding: 16,
-    paddingBottom: 32,
-  },
-  header: {
-    padding: 16,
-    backgroundColor: "#4F46E5",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 5,
-    zIndex: 10,
-    position: "absolute",
-    top: 0,
-    left: 0,
-    right: 0,
-  },
-  headerText: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    textAlign: "center",
-    fontFamily: "System",
-  },
-  profileCard: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 20,
-    marginBottom: 24,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  info: {
-    fontSize: 16,
-    color: "#6B7280",
-    lineHeight: 24,
-    marginBottom: 8,
-    fontFamily: "System",
-  },
-  editButton: {
-    backgroundColor: "#4F46E5",
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 16,
-  },
-  section: {
-    marginBottom: 24,
-    backgroundColor: "#FFFFFF",
-    padding: 16,
-    borderRadius: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  summaryRow: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  sectionTitle: {
-    fontSize: 20,
-    fontWeight: "600",
-    color: "#1F2937",
-    fontFamily: "System",
-  },
-  countText: {
-    fontSize: 18,
-    fontWeight: "500",
-    color: "#10B981",
-    fontFamily: "System",
-  },
-  couponCard: {
-    backgroundColor: "#F9FAFB",
-    borderRadius: 12,
-    padding: 14,
-    marginBottom: 12,
-  },
-  couponName: {
-    fontSize: 17,
-    fontWeight: "600",
-    color: "#1F2937",
-    fontFamily: "System",
-  },
-  couponValue: {
-    fontSize: 15,
-    color: "#10B981",
-    marginTop: 4,
-    fontFamily: "System",
-  },
-  couponDetail: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginTop: 4,
-    fontFamily: "System",
-  },
-  emptyText: {
-    textAlign: "center",
-    fontSize: 16,
-    color: "#6B7280",
-    marginVertical: 12,
-    fontFamily: "System",
-  },
-  detailsButton: {
-    backgroundColor: "#4F46E5",
-    paddingVertical: 10,
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 12,
-  },
-  withdrawButton: {
-    borderColor: "#EF4444",
-    borderWidth: 1,
-    paddingVertical: 8,
-    borderRadius: 8,
-    alignItems: "center",
-    marginTop: 12,
-  },
-  withdrawText: {
-    color: "#EF4444",
-    fontSize: 14,
-    fontWeight: "600",
-  },
-  logoutButton: {
-    backgroundColor: "#EF4444",
-    paddingVertical: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    marginBottom: 32,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.2,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: "System",
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#F9FAFB",
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: "#6B7280",
-    fontFamily: "System",
-  },
-  modalContainer: {
-    flex: 1,
-    justifyContent: "center",
-    backgroundColor: "rgba(0, 0, 0, 0.5)",
-  },
-  modalContent: {
-    backgroundColor: "#FFFFFF",
-    marginHorizontal: 16,
-    borderRadius: 16,
-    padding: 24,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: "700",
-    color: "#1F2937",
-    textAlign: "center",
-    marginBottom: 24,
-    fontFamily: "System",
-  },
-  input: {
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    fontSize: 16,
-    color: "#1F2937",
-    marginBottom: 16,
-    fontFamily: "System",
-  },
-  modalButtons: {
-    flexDirection: "row",
-    justifyContent: "space-between",
-    gap: 12,
-  },
-  cancelButton: {
-    backgroundColor: "#EF4444",
-    padding: 12,
-    borderRadius: 12,
-    alignItems: "center",
-    flex: 1,
-  },
-  saveButton: {
-    backgroundColor: "#10B981",
-    padding: 12,
-    borderRadius: 12,
-    alignItems: "center",
-    flex: 1,
-  },
+  cardHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: space.md },
+  row: { flexDirection: "row", justifyContent: "space-between", gap: space.md, paddingTop: space.sm, borderTopWidth: StyleSheet.hairlineWidth },
+  rowValue: { flexShrink: 1, textAlign: "right" },
+  form: { gap: space.sm + 4 },
 });
 
 export default ProfileScreen;

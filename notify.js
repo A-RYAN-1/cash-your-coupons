@@ -1,28 +1,23 @@
-import { Alert, Platform } from "react-native";
+// Messages and confirmations for every screen. Screens call these functions; <ToastHost />
+// (in ui.js) shows them, so the web and the phone look the same (Alert does nothing on the web).
+const listeners = new Set();
+let nextId = 1;
 
-// React Native's Alert does nothing on the web, so errors would be invisible there.
-export function notify(title, message) {
-  if (Platform.OS === "web") {
-    window.alert(message ? `${title}\n\n${message}` : title);
-  } else {
-    Alert.alert(title, message);
-  }
+const emit = (event) => listeners.forEach((listener) => listener(event));
+
+export function subscribe(listener) {
+  listeners.add(listener);
+  return () => listeners.delete(listener);
 }
 
-// Resolves true when the user confirms. Alert.alert has no promise form and does nothing on the web.
-export function confirmAction(title, message, confirmLabel) {
-  if (Platform.OS === "web") {
-    return Promise.resolve(window.confirm(`${title}\n\n${message}`));
-  }
-  return new Promise((resolve) => {
-    Alert.alert(
-      title,
-      message,
-      [
-        { text: "Cancel", style: "cancel", onPress: () => resolve(false) },
-        { text: confirmLabel, style: "destructive", onPress: () => resolve(true) },
-      ],
-      { cancelable: true, onDismiss: () => resolve(false) }
-    );
-  });
-}
+export const showSuccess = (message) =>
+  emit({ type: "toast", id: nextId++, kind: "success", message });
+
+export const showError = (message) =>
+  emit({ type: "toast", id: nextId++, kind: "error", message });
+
+// Resolves true when the user confirms.
+export const confirmAction = (title, message, confirmLabel) =>
+  new Promise((resolve) =>
+    emit({ type: "confirm", id: nextId++, title, message, confirmLabel, resolve })
+  );

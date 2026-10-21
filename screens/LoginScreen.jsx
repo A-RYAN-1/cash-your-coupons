@@ -1,182 +1,88 @@
-// screens/LoginScreen.jsx
-import React, { useState, useEffect } from "react";
-import {
-  Text,
-  TextInput,
-  TouchableOpacity,
-  StyleSheet,
-  ImageBackground,
-} from "react-native";
+import React, { useState } from "react";
+import { StyleSheet, Text, View } from "react-native";
+import { SafeAreaView } from "react-native-safe-area-context";
 import { login, register } from "../api";
-import { notify } from "../notify";
-import Animated, {
-  useSharedValue,
-  useAnimatedStyle,
-  withTiming,
-} from "react-native-reanimated";
-import { LinearGradient } from "expo-linear-gradient"; // Updated import
+import { showError } from "../notify";
+import { Button, Card, Field } from "../ui";
+import { MAX_WIDTH, space, type, useTheme } from "../theme";
 
 const LoginScreen = () => {
+  const t = useTheme();
+  const [mode, setMode] = useState("login");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [busy, setBusy] = useState(false);
 
-  // Animation setup
-  const opacity = useSharedValue(0);
-  const translateY = useSharedValue(50);
+  const creating = mode === "register";
 
-  useEffect(() => {
-    opacity.value = withTiming(1, { duration: 1000 });
-    translateY.value = withTiming(0, { duration: 1000 });
-  }, []);
-
-  const animatedStyle = useAnimatedStyle(() => ({
-    opacity: opacity.value,
-    transform: [{ translateY: translateY.value }],
-  }));
-
-  const handleLogin = async () => {
-    try {
-      await login(email, password);
-    } catch (error) {
-      notify("Login Failed", error.message);
+  const submit = async () => {
+    if (!email.trim() || !password) {
+      showError("Enter your email and password.");
+      return;
     }
-  };
-
-  const handleRegister = async () => {
+    setBusy(true);
     try {
-      await register(email, password);
+      await (creating ? register : login)(email.trim(), password);
     } catch (error) {
-      notify("Registration Failed", error.message);
+      showError(error.message);
+      setBusy(false);
     }
   };
 
   return (
-    <ImageBackground
-      source={{
-        uri: "https://images.unsplash.com/photo-1600585154340-be6161a56a0c?ixlib=rb-4.0.3&auto=format&fit=crop&w=1350&q=80",
-      }}
-      style={styles.backgroundImage}
-    >
-      <LinearGradient
-        colors={["rgba(0, 0, 0, 0.5)", "rgba(0, 0, 0, 0.8)"]}
-        style={styles.gradient}
-      >
-        <Animated.View style={[styles.container, animatedStyle]}>
-          <Text style={styles.title}>Cash Your Coupons</Text>
-          <Text style={styles.subtitle}>Login to your account</Text>
+    <SafeAreaView style={[styles.safe, { backgroundColor: t.bg }]}>
+      <View style={styles.column}>
+        <Text style={[type.title, { color: t.text }]} accessibilityRole="header">
+          Cash Your Coupons
+        </Text>
+        <Text style={[type.body, styles.lead, { color: t.muted }]}>
+          Sell the coupons you will not use and buy the ones you will.
+        </Text>
 
-          <Text style={styles.label}>Email</Text>
-          <TextInput
-            style={styles.input}
+        <Card style={styles.form}>
+          <Text style={[type.heading, { color: t.text }]}>
+            {creating ? "Create an account" : "Sign in"}
+          </Text>
+          <Field
+            label="Email"
             value={email}
             onChangeText={setEmail}
-            placeholder="Enter your email"
-            placeholderTextColor="#aaa"
             keyboardType="email-address"
             autoCapitalize="none"
+            autoComplete="email"
+            textContentType="emailAddress"
           />
-
-          <Text style={styles.label}>Password</Text>
-          <TextInput
-            style={styles.input}
+          <Field
+            label="Password"
             value={password}
             onChangeText={setPassword}
-            placeholder="Enter your password"
-            placeholderTextColor="#aaa"
             secureTextEntry
+            autoComplete={creating ? "new-password" : "current-password"}
+            textContentType={creating ? "newPassword" : "password"}
+            onSubmitEditing={submit}
           />
-
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin}>
-            <Text style={styles.buttonText}>Login</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.registerButton}
-            onPress={handleRegister}
-          >
-            <Text style={styles.buttonText}>Register</Text>
-          </TouchableOpacity>
-        </Animated.View>
-      </LinearGradient>
-    </ImageBackground>
+          <Button
+            label={creating ? "Create account" : "Sign in"}
+            onPress={submit}
+            loading={busy}
+          />
+          <Button
+            variant="secondary"
+            label={creating ? "I already have an account" : "Create a new account"}
+            onPress={() => setMode(creating ? "login" : "register")}
+            disabled={busy}
+          />
+        </Card>
+      </View>
+    </SafeAreaView>
   );
 };
 
 const styles = StyleSheet.create({
-  backgroundImage: {
-    flex: 1,
-    resizeMode: "cover",
-  },
-  gradient: {
-    flex: 1,
-    justifyContent: "center",
-    padding: 24,
-  },
-  container: {
-    backgroundColor: "rgba(255, 255, 255, 0.95)",
-    borderRadius: 20,
-    padding: 24,
-    marginHorizontal: 16,
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 6,
-    elevation: 5,
-  },
-  title: {
-    fontSize: 34,
-    fontWeight: "700",
-    color: "#1F2937",
-    textAlign: "center",
-    marginBottom: 12,
-    fontFamily: "System",
-  },
-  subtitle: {
-    fontSize: 18,
-    color: "#6B7280",
-    textAlign: "center",
-    marginBottom: 32,
-    fontFamily: "System",
-  },
-  label: {
-    fontSize: 16,
-    fontWeight: "600",
-    color: "#1F2937",
-    marginTop: 12,
-    marginBottom: 8,
-    fontFamily: "System",
-  },
-  input: {
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    fontSize: 16,
-    color: "#1F2937",
-    marginBottom: 16,
-    fontFamily: "System",
-  },
-  loginButton: {
-    backgroundColor: "#4F46E5",
-    padding: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 24,
-  },
-  registerButton: {
-    backgroundColor: "#10B981",
-    padding: 16,
-    borderRadius: 12,
-    alignItems: "center",
-    marginTop: 12,
-  },
-  buttonText: {
-    color: "#FFFFFF",
-    fontSize: 16,
-    fontWeight: "600",
-    fontFamily: "System",
-  },
+  safe: { flex: 1, justifyContent: "center" },
+  column: { width: "100%", maxWidth: Math.min(MAX_WIDTH, 440), alignSelf: "center", padding: space.md },
+  lead: { marginTop: space.xs, marginBottom: space.lg },
+  form: { gap: space.md },
 });
 
 export default LoginScreen;
