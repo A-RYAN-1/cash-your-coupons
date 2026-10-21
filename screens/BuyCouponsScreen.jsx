@@ -1,363 +1,137 @@
-import React, { useState, useEffect, useCallback } from "react";
-import {
-  View,
-  Text,
-  TouchableOpacity,
-  StyleSheet,
-  ActivityIndicator,
-  RefreshControl,
-  SectionList,
-  TextInput,
-} from "react-native";
+import React, { useState, useEffect, useCallback, useMemo } from "react";
+import { RefreshControl, SectionList, StyleSheet, Text, View } from "react-native";
 import { listCoupons, buyCoupon } from "../api";
-import { notify } from "../notify";
-import { Picker } from "@react-native-picker/picker";
+import { showError, showSuccess } from "../notify";
+import { Button, ChipRow, CouponCard, EmptyState, Field, Loading, Screen, expiryInfo, listPadding, rupees } from "../ui";
+import { space, type, useTheme } from "../theme";
+
+const DAY = 24 * 60 * 60 * 1000;
+
+const FILTERS = ["All", "Today", "This week", "This month", "Later"];
+
+// The server sends other people's unexpired listings, soonest expiry first.
+const bucket = (expiryDate) => {
+  const left = new Date(expiryDate) - new Date();
+  if (left <= DAY) return "Today";
+  if (left <= 7 * DAY) return "This week";
+  if (left <= 30 * DAY) return "This month";
+  return "Later";
+};
 
 const BuyCouponsScreen = () => {
-  const [coupons, setCoupons] = useState([]);
-  const [loading, setLoading] = useState(true);
+  const t = useTheme();
+  const [coupons, setCoupons] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
-  const [searchQuery, setSearchQuery] = useState("");
+  const [buying, setBuying] = useState(null);
+  const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All");
 
-  const fetchCoupons = useCallback(async () => {
-    setRefreshing(true);
-    setLoading(true);
+  const load = useCallback(async () => {
     try {
-      // The server returns other people's unexpired listings, soonest expiry first.
-      const sorted = await listCoupons();
-
-      setCoupons(sorted);
+      setCoupons(await listCoupons());
     } catch (error) {
-      console.error("Error fetching coupons:", error.message);
-      notify("Error", "Something went wrong while fetching coupons.");
-    } finally {
-      setLoading(false);
-      setRefreshing(false);
+      showError(error.message);
+      setCoupons((current) => current ?? []);
     }
   }, []);
 
   useEffect(() => {
-    // Load on mount; the loader sets its own loading flags first.
+    // Load on mount; the loader sets state only after the request returns.
     // eslint-disable-next-line react-hooks/set-state-in-effect
-    fetchCoupons();
-  }, [fetchCoupons]);
+    load();
+  }, [load]);
 
-  const handleBuyCoupon = useCallback(async (coupon) => {
+  const refresh = async () => {
+    setRefreshing(true);
+    await load();
+    setRefreshing(false);
+  };
+
+  const buy = async (coupon) => {
+    setBuying(coupon.id);
     try {
       await buyCoupon(coupon.id);
-
-      notify(
-        "Success",
-        `You bought ${coupon.name} for ₹${coupon.value || 500}`
-      );
-      setCoupons((prev) => prev.filter((c) => c.id !== coupon.id));
+      showSuccess(`You bought ${coupon.name} for ${rupees(coupon.value)}.`);
+      setCoupons((list) => list.filter((c) => c.id !== coupon.id));
     } catch (error) {
-      notify("Error", error.message || "Could not complete purchase.");
+      showError(error.message);
+    } finally {
+      setBuying(null);
     }
-  }, []);
+  };
 
-  const categorizeCoupons = useCallback(() => {
-    const now = new Date();
-    const today = new Date(now.setHours(0, 0, 0, 0));
-    const oneWeek = new Date(today.getTime() + 7 * 24 * 60 * 60 * 1000);
-    const oneMonth = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
-
-    let filteredCoupons = coupons;
-
-    if (searchQuery) {
-      filteredCoupons = filteredCoupons.filter((coupon) =>
-        coupon.name.toLowerCase().includes(searchQuery.toLowerCase())
-      );
-    }
-
-    const sections = [
-      {
-        title: "Expiring Today",
-        data: filteredCoupons.filter((coupon) => {
-          const expiry = new Date(coupon.expiryDate);
-          return expiry.toDateString() === today.toDateString();
-        }),
-      },
-      {
-        title: "Expiring Within a Week",
-        data: filteredCoupons.filter((coupon) => {
-          const expiry = new Date(coupon.expiryDate);
-          return expiry > today && expiry <= oneWeek;
-        }),
-      },
-      {
-        title: "Expiring Within a Month",
-        data: filteredCoupons.filter((coupon) => {
-          const expiry = new Date(coupon.expiryDate);
-          return expiry > oneWeek && expiry <= oneMonth;
-        }),
-      },
-      {
-        title: "Remaining Coupons",
-        data: filteredCoupons.filter((coupon) => {
-          const expiry = new Date(coupon.expiryDate);
-          return expiry > oneMonth;
-        }),
-      },
-      {
-        title: "Expired Coupons",
-        data: filteredCoupons.filter((coupon) => {
-          const expiry = new Date(coupon.expiryDate);
-          return expiry < today;
-        }),
-      },
-    ];
-
-    if (filter !== "All") {
-      const filteredSection = sections.find(
-        (section) => section.title === filter
-      );
-      return filteredSection ? [filteredSection] : [];
-    }
-
-    return sections.filter((section) => section.data.length > 0);
-  }, [coupons, searchQuery, filter]);
-
-  const renderCouponItem = useCallback(
-    ({ item }) => {
-      const expiryDate = new Date(item.expiryDate);
-      const isExpiringSoon =
-        expiryDate - new Date() < 7 * 24 * 60 * 60 * 1000 &&
-        expiryDate > new Date();
-      const isExpired = expiryDate <= new Date();
-
-      return (
-        <View style={[styles.card, isExpiringSoon && styles.expiringCard]}>
-          <View style={styles.cardLeft}>
-            <Text style={styles.cardTitle}>{item.name || "Unnamed"}</Text>
-            <Text style={styles.cardDetail}>₹{item.value ?? "N/A"}</Text>
-            <Text style={styles.cardDetail}>
-              {item.details || "No details"}
-            </Text>
-            <Text style={styles.cardDetail}>
-              Expires {expiryDate.toLocaleDateString()}
-            </Text>
-            {isExpired && (
-              <Text style={styles.expiredText}>This coupon has expired</Text>
-            )}
-          </View>
-          <TouchableOpacity
-            style={[styles.buyButton, isExpired && styles.disabledButton]}
-            onPress={() => !isExpired && handleBuyCoupon(item)}
-            disabled={isExpired || !item.name || !item.value}
-          >
-            <Text style={styles.buyText}>{isExpired ? "Expired" : "Buy"}</Text>
-          </TouchableOpacity>
-        </View>
-      );
-    },
-    [handleBuyCoupon]
-  );
-
-  const renderSectionHeader = ({ section: { title } }) => (
-    <View style={styles.sectionHeader}>
-      <Text style={styles.sectionHeaderText}>{title}</Text>
-    </View>
-  );
-
-  const onRefresh = useCallback(() => {
-    fetchCoupons();
-  }, [fetchCoupons]);
-
-  if (loading) {
-    return (
-      <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#4F46E5" />
-        <Text style={styles.loadingText}>Loading coupons... </Text>
-      </View>
+  const sections = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    const matching = (coupons ?? []).filter(
+      (c) => !needle || c.name.toLowerCase().includes(needle)
     );
-  }
+    return FILTERS.slice(1)
+      .filter((name) => filter === "All" || filter === name)
+      .map((title) => ({ title, data: matching.filter((c) => bucket(c.expiryDate) === title) }))
+      .filter((section) => section.data.length > 0);
+  }, [coupons, query, filter]);
+
+  if (coupons === null) return <Screen title="Buy"><Loading /></Screen>;
 
   return (
-    <View style={styles.container}>
-      <View style={styles.header}>
-        <Text style={styles.headerText}>Buy Coupons</Text>
-      </View>
-
-      <View style={styles.filterContainer}>
-        <TextInput
-          style={styles.searchInput}
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-          placeholder="Search by coupon name..."
-          placeholderTextColor="#aaa"
+    <Screen title="Buy" subtitle={`${coupons.length} coupons for sale`}>
+      <View style={styles.filters}>
+        <Field
+          label="Search"
+          value={query}
+          onChangeText={setQuery}
+          placeholder="Brand or coupon name"
+          returnKeyType="search"
         />
-        <View style={styles.pickerContainer}>
-          <Picker
-            selectedValue={filter}
-            onValueChange={(itemValue) => setFilter(itemValue)}
-            style={styles.picker}
-          >
-            <Picker.Item label="All" value="All" />
-            <Picker.Item label="Expiring Today" value="Expiring Today" />
-            <Picker.Item
-              label="Expiring Within a Week"
-              value="Expiring Within a Week"
-            />
-            <Picker.Item
-              label="Expiring Within a Month"
-              value="Expiring Within a Month"
-            />
-            <Picker.Item label="Remaining Coupons" value="Remaining Coupons" />
-            <Picker.Item label="Expired Coupons" value="Expired Coupons" />
-          </Picker>
-        </View>
+        <ChipRow options={FILTERS} value={filter} onChange={(v) => setFilter(v || "All")} scroll />
       </View>
 
       <SectionList
-        sections={categorizeCoupons()}
-        renderItem={renderCouponItem}
-        renderSectionHeader={renderSectionHeader}
-        keyExtractor={(item) => item.id}
-        ListEmptyComponent={
-          <Text style={styles.emptyState}>
-            No coupons available right now. Check back later!
+        sections={sections}
+        keyExtractor={(item) => String(item.id)}
+        contentContainerStyle={listPadding}
+        stickySectionHeadersEnabled={false}
+        refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}
+        renderSectionHeader={({ section }) => (
+          <Text style={[type.label, styles.section, { color: t.muted }]}>
+            {section.title === "Today" ? "Expiring today" : section.title === "Later" ? "More than a month left" : `Expiring ${section.title.toLowerCase()}`}
           </Text>
+        )}
+        renderItem={({ item }) => (
+          <View style={styles.item}>
+            <CouponCard
+              coupon={item}
+              action={
+                <Button
+                  small
+                  label="Buy"
+                  loading={buying === item.id}
+                  disabled={expiryInfo(item.expiryDate).expired || buying !== null}
+                  onPress={() => buy(item)}
+                />
+              }
+            />
+          </View>
+        )}
+        ListEmptyComponent={
+          <EmptyState
+            title={coupons.length === 0 ? "Nothing for sale yet" : "No coupons match"}
+            text={
+              coupons.length === 0
+                ? "Listings from other people show up here. Pull down to refresh, or list one of your own on the Sell tab."
+                : "Try a different name or another expiry window."
+            }
+          />
         }
-        refreshControl={
-          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} />
-        }
-        contentContainerStyle={{ paddingBottom: 20 }}
       />
-    </View>
+    </Screen>
   );
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: "#F9FAFB" },
-  header: {
-    padding: 16,
-    backgroundColor: "#4F46E5",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.3,
-    shadowRadius: 6,
-    elevation: 5,
-  },
-  headerText: {
-    fontSize: 26,
-    fontWeight: "700",
-    color: "#FFFFFF",
-    textAlign: "center",
-    fontFamily: "System",
-  },
-  loadingContainer: {
-    flex: 1,
-    justifyContent: "center",
-    alignItems: "center",
-    backgroundColor: "#F9FAFB",
-  },
-  loadingText: {
-    marginTop: 12,
-    fontSize: 16,
-    color: "#6B7280",
-    fontFamily: "System",
-  },
-  card: {
-    backgroundColor: "#FFFFFF",
-    borderRadius: 16,
-    padding: 16,
-    marginHorizontal: 16,
-    marginVertical: 8,
-    flexDirection: "row",
-    justifyContent: "space-between",
-    alignItems: "center",
-    shadowColor: "#000",
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
-  },
-  expiringCard: {
-    borderColor: "#F87171",
-    borderWidth: 2,
-    backgroundColor: "#FFF5F5",
-  },
-  cardLeft: { flex: 1, marginRight: 12 },
-  cardTitle: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1F2937",
-    marginBottom: 6,
-    fontFamily: "System",
-  },
-  cardDetail: {
-    fontSize: 14,
-    color: "#6B7280",
-    marginTop: 4,
-    fontFamily: "System",
-  },
-  expiredText: {
-    fontSize: 14,
-    color: "#EF4444",
-    fontWeight: "600",
-    marginTop: 6,
-    fontFamily: "System",
-  },
-  buyButton: {
-    backgroundColor: "#4F46E5",
-    paddingVertical: 12,
-    paddingHorizontal: 20,
-    borderRadius: 12,
-    alignItems: "center",
-  },
-  disabledButton: { backgroundColor: "#9CA3AF", opacity: 0.7 },
-  buyText: {
-    color: "#FFFFFF",
-    fontWeight: "600",
-    fontSize: 15,
-    fontFamily: "System",
-  },
-  emptyState: {
-    textAlign: "center",
-    fontSize: 16,
-    color: "#6B7280",
-    marginTop: 48,
-    fontFamily: "System",
-  },
-  sectionHeader: {
-    backgroundColor: "#E5E7EB",
-    padding: 12,
-    borderBottomWidth: 1,
-    borderBottomColor: "#D1D5DB",
-  },
-  sectionHeaderText: {
-    fontSize: 18,
-    fontWeight: "600",
-    color: "#1F2937",
-    fontFamily: "System",
-  },
-  filterContainer: {
-    padding: 16,
-    backgroundColor: "#FFFFFF",
-    borderBottomWidth: 1,
-    borderBottomColor: "#E5E7EB",
-  },
-  searchInput: {
-    backgroundColor: "#F3F4F6",
-    borderRadius: 12,
-    padding: 14,
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    fontSize: 16,
-    color: "#1F2937",
-    marginBottom: 12,
-    fontFamily: "System",
-  },
-  pickerContainer: {
-    borderWidth: 1,
-    borderColor: "#D1D5DB",
-    borderRadius: 12,
-    backgroundColor: "#FFFFFF",
-    overflow: "hidden",
-  },
-  picker: { height: 48, fontFamily: "System" },
+  filters: { paddingHorizontal: space.md, gap: space.sm, paddingBottom: space.xs },
+  section: { textTransform: "uppercase", letterSpacing: 0.5, marginTop: space.md, marginBottom: space.sm },
+  item: { marginBottom: space.sm + 2 },
 });
 
 export default BuyCouponsScreen;

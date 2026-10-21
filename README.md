@@ -95,8 +95,8 @@ in the first two minutes:
 
 - **Email and password accounts**: sign up and sign in; passwords are hashed with bcrypt and a signed login token is kept on the device (AsyncStorage), so a reload stays signed in.
 - **Sell**: list a coupon with name, value, details, category and expiry date.
-  - Categories: Food, Clothes, Travel and others from the picker.
-  - Expiry is chosen with a date picker.
+  - Categories are chips: Food, Clothes, Travel and others.
+  - Expiry is typed as DD-MM-YYYY, with one-tap shortcuts for 1 week, 1 month and 3 months.
 - **Buy**: browse other users' listings, sorted by soonest expiry, with search and filters.
   - Your own listings are not shown to you.
   - A purchase is one database transaction that locks the listing: it fails if the coupon is gone, expired or your own, and two buyers racing for one coupon cannot both win.
@@ -159,7 +159,7 @@ is a second guard, so two buyers cannot both get the same coupon.
 
 1. **An own API instead of Firebase.** Rules, validation and the purchase transaction are code in this repository, with tests, and a new feature never waits on a console. Trade-off: a server to host, which on the free plan sleeps after 15 minutes idle.
 2. **The purchase is a locked transaction.** The listing row is locked, checked, marked sold and the purchase recorded in one step. Sold and withdrawn listings stay in the table, so there is history.
-3. **One codebase for phone and browser.** `api.js` is the only network module, the session token is kept in AsyncStorage on every platform, and `notify.js` replaces `Alert` and `confirm`, which differ on the web. Trade-off: the token lives in storage the app can read, not an httpOnly cookie; acceptable for a demo, a gap to close for real money.
+3. **One codebase for phone and browser.** `api.js` is the only network module, the session token is kept in AsyncStorage on every platform, and `notify.js` and `ui.js` replace `Alert` and `confirm`, which differ on the web. Trade-off: the token lives in storage the app can read, not an httpOnly cookie; acceptable for a demo, a gap to close for real money.
 4. **Settings from environment variables.** The app reads `EXPO_PUBLIC_API_URL` (public by design) and fails on startup if it is missing; the API reads its secrets from its own environment and refuses to start without them.
 
 <details>
@@ -169,7 +169,9 @@ is a second guard, so two buyers cannot both get the same coupon.
 App.js              navigation: login stack or the four tabs, chosen by the saved session
 api.js              every call to the API and the saved login token
 config.js           the API address from EXPO_PUBLIC_API_URL
-notify.js           alert and confirm for native and web
+notify.js           toasts and confirmations, shown by ToastHost in ui.js
+theme.js            colours, spacing and type scale, light and dark
+ui.js               shared components: Button, Field, Card, CouponCard, Dialog and more
 screens/            Login, Buy, Sell, Exchange, Profile
 server/             the API: app.js (routes), validation.js, database.sql, seed.js, test/
 compose.yaml        a local Postgres for the API and its tests
