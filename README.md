@@ -33,7 +33,7 @@
   </a>
 </p>
 
-<p align="center"><sub>Last updated: 2026-10-18 &middot; Live on free tiers (Vercel for the web build, Render for the API, Neon for Postgres); also runs in Expo Go</sub></p>
+<p align="center"><sub>Last updated: 2026-10-23 &middot; Live on free tiers (Vercel for the web build, Render for the API, Neon for Postgres); also runs in Expo Go</sub></p>
 
 ---
 
@@ -85,8 +85,12 @@ in the first two minutes:
     <td width="50%"><img src="docs/images/sell.png" alt="Sell form"><p align="center"><sub>Sell: list a coupon (<a href="#features">features</a>)</sub></p></td>
   </tr>
   <tr>
-    <td width="50%"><img src="docs/images/exchange.png" alt="Exchange search"><p align="center"><sub>Exchange: find matching coupons (<a href="#status-and-roadmap">limits</a>)</sub></p></td>
+    <td width="50%"><img src="docs/images/exchange.png" alt="Exchange search with one match and an Offer a swap button"><p align="center"><sub>Exchange: find a match and offer a swap (<a href="#features">features</a>)</sub></p></td>
     <td width="50%"><img src="docs/images/profile.png" alt="Profile with one coupon bought"><p align="center"><sub>Profile: details, listings, purchases (<a href="#features">features</a>)</sub></p></td>
+  </tr>
+  <tr>
+    <td width="50%"><img src="docs/images/offers.png" alt="Profile, Offers tab: a pending offer of one coupon for another with Decline and Accept buttons"><p align="center"><sub>Offers: the owner accepts or declines a swap (<a href="#features">features</a>)</sub></p></td>
+    <td width="50%"></td>
   </tr>
 </table>
 
@@ -194,7 +198,7 @@ mise.toml           Node version pin
 | API tests | 33 tests (`server/test`) on real Postgres: validation, auth, ownership, withdraw, the buy transaction including a race for one coupon, and the exchange offers (rules, accept, decline, cancel, cancellation on withdraw or sale, expiry, a race between accept, decline and a purchase); pass on 2026-10-23 |
 | Lint and format | ESLint (app and API) clean of errors, Prettier clean on the API, 2026-10-18; two hook-dependency warnings remain in the app |
 | Build check | `npm run check` (lint, `expo-doctor`, Android Hermes and web bundles) passed on 2026-10-18 |
-| Browser run | on 2026-10-18 the live site was driven in Chrome (Playwright): a wrong password refused, the Buy list, a purchase (the coupon left the list and showed under Profile), a reload that kept the session, and a seller withdrawing a listing |
+| Browser run | on 2026-10-18 the live site was driven in Chrome (Playwright): a wrong password refused, the Buy list, a purchase (the coupon left the list and showed under Profile), a reload that kept the session, and a seller withdrawing a listing. On 2026-10-23 the same was done for exchange offers on the live site: the demo seller offered a swap, the demo buyer accepted it, and the coupons changed hands |
 | Security | bcrypt passwords, signed expiring tokens, helmet, CORS limited to the web origin, a rate limit on every route and a stricter one on login and register, JSON errors without stack traces, parameterised SQL; `npm audit --omit=dev` found 0 in the API on 2026-10-18 |
 | CI | GitHub Actions runs the API job (lint, format, migrate, tests, audit) and the app job (lint, `expo-doctor`, web export) on every push |
 | Monitoring and scanning | an Uptime workflow pings the API `/health` and the app every 30 minutes, CodeQL scans on every push and weekly, and Dependabot opens weekly version-update pull requests (workflows added 2026-10-20) |
@@ -296,7 +300,7 @@ compute-hours a month, far above a demo.
 
 ## Status and roadmap
 
-**Reached:** live on free tiers (2026-10-18) on an own API and database; the live site was exercised end to end in a browser (sign in, browse, buy, profile, reload, withdraw); 33 API tests and CI; exchange offers added 2026-10-23. **Not reached:** a run on a physical phone.
+**Reached:** live on free tiers (2026-10-18) on an own API and database; the live site was exercised end to end in a browser (sign in, browse, buy, profile, reload, withdraw); 33 API tests and CI; exchange offers added and checked on the live site 2026-10-23. **Not reached:** a run on a physical phone.
 
 **Known limitations**
 
