@@ -46,6 +46,9 @@ test.before(async () => {
 
 test.after(async () => {
   const users = "(SELECT id FROM users WHERE email = ANY($1))";
+  await pool.query(`DELETE FROM exchanges WHERE offerer_id IN ${users} OR owner_id IN ${users}`, [
+    emails,
+  ]);
   await pool.query(`DELETE FROM purchases WHERE buyer_id IN ${users} OR seller_id IN ${users}`, [
     emails,
   ]);
@@ -294,4 +297,124 @@ test("buy rejects a malformed id and an unknown id", async () => {
 test("unknown routes return JSON 404", async () => {
   const res = await request(app).get("/nothing-here").expect(404);
   assert.equal(res.body.error, "Not found");
+});
+
+// Exchange offers. `post` and `status` keep the tests short.
+const post = (path, token, body) => request(app).post(path).set(auth(token)).send(body);
+const offer = (token, offeredCouponId, requestedCouponId) =>
+  post("/exchanges", token, { offeredCouponId, requestedCouponId });
+const statusOf = async (id) =>
+  (await pool.query("SELECT status FROM coupons WHERE id = $1", [id])).rows[0].status;
+const pair = async (names) => {
+  const mine = await create(seller, listing({ name: `${names}-mine-${suffix}` })).expect(201);
+  const theirs = await create(buyer, listing({ name: `${names}-theirs-${suffix}` })).expect(201);
+  return { mine: mine.body.id, theirs: theirs.body.id };
+};
+
+test("exchange: an offer needs your own listed coupon and someone else's", async () => {
+  const { mine, theirs } = await pair("rules");
+  await post("/exchanges", seller, {}).expect(400);
+  await offer(seller, "not-a-uuid", theirs).expect(400);
+  await offer(seller, mine, mine).expect(400);
+  await offer(buyer, mine, theirs).expect(403);
+  await offer(seller, theirs, mine).expect(403);
+  await offer(other, mine, theirs).expect(403);
+  const made = await offer(seller, mine, theirs).expect(201);
+  assert.equal(made.body.status, "pending");
+  assert.equal(made.body.role, "offered");
+  assert.equal(made.body.offered.id, mine);
+  assert.equal(made.body.requested.id, theirs);
+  await offer(seller, mine, theirs).expect(409);
+});
+
+test("exchange: both sides see the offer with their own role", async () => {
+  const { mine, theirs } = await pair("lists");
+  const made = await offer(seller, mine, theirs).expect(201);
+  const sent = await request(app).get("/exchanges").set(auth(seller)).expect(200);
+  const received = await request(app).get("/exchanges").set(auth(buyer)).expect(200);
+  assert.equal(sent.body.find((e) => e.id === made.body.id).role, "offered");
+  assert.equal(received.body.find((e) => e.id === made.body.id).role, "received");
+  const stranger = await request(app).get("/exchanges").set(auth(other)).expect(200);
+  assert.ok(!stranger.body.some((e) => e.id === made.body.id));
+});
+
+test("exchange: accept swaps both coupons once and closes rival offers", async () => {
+  const { mine, theirs } = await pair("accept");
+  const rival = await create(other, listing({ name: `accept-rival-${suffix}` })).expect(201);
+  const main = await offer(seller, mine, theirs).expect(201);
+  const competing = await offer(other, rival.body.id, theirs).expect(201);
+  await post(`/exchanges/${main.body.id}/accept`, seller).expect(404);
+  await post(`/exchanges/${main.body.id}/accept`, other).expect(404);
+  const accepted = await post(`/exchanges/${main.body.id}/accept`, buyer).expect(200);
+  assert.equal(accepted.body.status, "accepted");
+  assert.equal(await statusOf(mine), "exchanged");
+  assert.equal(await statusOf(theirs), "exchanged");
+  const listed = await request(app).get("/coupons/mine").set(auth(seller));
+  assert.ok(!listed.body.some((c) => c.id === mine));
+  const after = await request(app).get("/exchanges").set(auth(other));
+  assert.equal(after.body.find((e) => e.id === competing.body.id).status, "cancelled");
+  await post(`/exchanges/${main.body.id}/accept`, buyer).expect(404);
+  await request(app).post(`/coupons/${theirs}/buy`).set(auth(other)).expect(404);
+});
+
+test("exchange: decline and cancel each work once, for the right person only", async () => {
+  const first = await pair("decline");
+  const declined = await offer(seller, first.mine, first.theirs).expect(201);
+  await post(`/exchanges/${declined.body.id}/decline`, seller).expect(404);
+  const res = await post(`/exchanges/${declined.body.id}/decline`, buyer).expect(200);
+  assert.equal(res.body.status, "declined");
+  await post(`/exchanges/${declined.body.id}/decline`, buyer).expect(404);
+  assert.equal(await statusOf(first.mine), "listed");
+
+  const second = await pair("cancel");
+  const cancelled = await offer(seller, second.mine, second.theirs).expect(201);
+  await post(`/exchanges/${cancelled.body.id}/cancel`, buyer).expect(404);
+  const gone = await post(`/exchanges/${cancelled.body.id}/cancel`, seller).expect(200);
+  assert.equal(gone.body.status, "cancelled");
+  await post(`/exchanges/${cancelled.body.id}/accept`, buyer).expect(404);
+  await post("/exchanges/not-a-uuid/accept", buyer).expect(400);
+});
+
+test("exchange: withdrawing or selling a coupon cancels its pending offers", async () => {
+  const withdrawn = await pair("withdraw");
+  const one = await offer(seller, withdrawn.mine, withdrawn.theirs).expect(201);
+  await request(app).delete(`/coupons/${withdrawn.mine}`).set(auth(seller)).expect(204);
+  const afterWithdraw = await request(app).get("/exchanges").set(auth(buyer));
+  assert.equal(afterWithdraw.body.find((e) => e.id === one.body.id).status, "cancelled");
+
+  const sold = await pair("sold");
+  const two = await offer(seller, sold.mine, sold.theirs).expect(201);
+  await request(app).post(`/coupons/${sold.theirs}/buy`).set(auth(other)).expect(201);
+  const afterSale = await request(app).get("/exchanges").set(auth(seller));
+  assert.equal(afterSale.body.find((e) => e.id === two.body.id).status, "cancelled");
+  await offer(seller, sold.mine, sold.theirs).expect(404);
+});
+
+test("exchange: an expired coupon cannot be offered or accepted", async () => {
+  const { mine, theirs } = await pair("expiry");
+  const made = await offer(seller, mine, theirs).expect(201);
+  await pool.query("UPDATE coupons SET expiry_date = now() - interval '1 hour' WHERE id = $1", [
+    theirs,
+  ]);
+  await post(`/exchanges/${made.body.id}/accept`, buyer).expect(409);
+  assert.equal(await statusOf(mine), "listed");
+  const fresh = await create(seller, listing({ name: `expiry-fresh-${suffix}` })).expect(201);
+  await offer(seller, fresh.body.id, theirs).expect(409);
+});
+
+test("exchange: two owners racing to answer one offer, exactly one outcome", async () => {
+  const { mine, theirs } = await pair("race");
+  const made = await offer(seller, mine, theirs).expect(201);
+  const results = await Promise.all([
+    post(`/exchanges/${made.body.id}/accept`, buyer),
+    post(`/exchanges/${made.body.id}/decline`, buyer),
+    request(app).post(`/coupons/${theirs}/buy`).set(auth(other)),
+  ]);
+  const final = (await pool.query("SELECT status FROM exchanges WHERE id = $1", [made.body.id]))
+    .rows[0].status;
+  const accepted = results[0].status === 200;
+  assert.equal(accepted, final === "accepted");
+  if (accepted) assert.equal(await statusOf(theirs), "exchanged");
+  else assert.notEqual(await statusOf(theirs), "exchanged");
+  assert.ok(final !== "pending");
 });

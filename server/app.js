@@ -15,6 +15,7 @@ const {
   parseId,
 } = require("./validation");
 const logger = require("./logger");
+const { registerExchangeRoutes, cancelOffersOn } = require("./exchanges");
 
 const COUPON_COLUMNS = "id, seller_id, name, value, details, category, expiry_date, created_at";
 const PROFILE_COLUMNS = "id, email, name, gender, age, phone, address, dob";
@@ -242,16 +243,26 @@ function createApp({ authLimit = 20, apiLimit = 300 } = {}) {
   app.delete("/coupons/:id", authenticate, async (req, res) => {
     const id = parseId(req.params.id);
     if (!id) return fail(res, 400, "Invalid coupon id");
+    const client = await pool.connect();
     try {
-      const result = await pool.query(
+      await client.query("BEGIN");
+      const result = await client.query(
         `UPDATE coupons SET status = 'withdrawn'
          WHERE id = $1 AND seller_id = $2 AND status = 'listed'`,
         [id, req.user.id]
       );
-      if (result.rowCount === 0) return fail(res, 404, "Listing not found or already sold");
+      if (result.rowCount === 0) {
+        await client.query("ROLLBACK");
+        return fail(res, 404, "Listing not found or already sold");
+      }
+      await cancelOffersOn(client, [id]);
+      await client.query("COMMIT");
       res.status(204).end();
     } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
       return serverError(req, res, err, "withdraw coupon failed");
+    } finally {
+      client.release();
     }
   });
 
@@ -278,6 +289,7 @@ function createApp({ authLimit = 20, apiLimit = 300 } = {}) {
         return fail(res, problem[0], problem[1]);
       }
       await client.query("UPDATE coupons SET status = 'sold' WHERE id = $1", [id]);
+      await cancelOffersOn(client, [id]);
       const purchase = await client.query(
         `INSERT INTO purchases (coupon_id, buyer_id, seller_id, coupon_name, coupon_value)
          VALUES ($1, $2, $3, $4, $5)
@@ -306,6 +318,8 @@ function createApp({ authLimit = 20, apiLimit = 300 } = {}) {
       return serverError(req, res, err, "list purchases failed");
     }
   });
+
+  registerExchangeRoutes(app, { authenticate, fail, serverError });
 
   app.use((req, res) => fail(res, 404, "Not found"));
 

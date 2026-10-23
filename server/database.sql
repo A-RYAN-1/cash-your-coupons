@@ -27,6 +27,11 @@ CREATE TABLE IF NOT EXISTS coupons (
 CREATE INDEX IF NOT EXISTS coupons_listed_idx ON coupons (expiry_date) WHERE status = 'listed';
 CREATE INDEX IF NOT EXISTS coupons_seller_idx ON coupons (seller_id);
 
+-- A coupon given up in an accepted exchange is 'exchanged'; this replaces the original check.
+ALTER TABLE coupons DROP CONSTRAINT IF EXISTS coupons_status_check;
+ALTER TABLE coupons ADD CONSTRAINT coupons_status_check
+  CHECK (status IN ('listed', 'sold', 'withdrawn', 'exchanged'));
+
 -- One row per sale; the unique coupon_id means a coupon can be bought only once.
 CREATE TABLE IF NOT EXISTS purchases (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -39,3 +44,22 @@ CREATE TABLE IF NOT EXISTS purchases (
   CHECK (buyer_id <> seller_id)
 );
 CREATE INDEX IF NOT EXISTS purchases_buyer_idx ON purchases (buyer_id);
+
+-- An offer to swap the offerer coupon for the owner coupon. One pending offer per pair.
+CREATE TABLE IF NOT EXISTS exchanges (
+  id                  UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  offered_coupon_id   UUID NOT NULL REFERENCES coupons(id),
+  requested_coupon_id UUID NOT NULL REFERENCES coupons(id),
+  offerer_id          UUID NOT NULL REFERENCES users(id),
+  owner_id            UUID NOT NULL REFERENCES users(id),
+  status              TEXT NOT NULL DEFAULT 'pending'
+                      CHECK (status IN ('pending', 'accepted', 'declined', 'cancelled')),
+  created_at          TIMESTAMPTZ NOT NULL DEFAULT now(),
+  resolved_at         TIMESTAMPTZ,
+  CHECK (offerer_id <> owner_id),
+  CHECK (offered_coupon_id <> requested_coupon_id)
+);
+CREATE UNIQUE INDEX IF NOT EXISTS exchanges_pending_pair_idx
+  ON exchanges (offered_coupon_id, requested_coupon_id) WHERE status = 'pending';
+CREATE INDEX IF NOT EXISTS exchanges_offerer_idx ON exchanges (offerer_id);
+CREATE INDEX IF NOT EXISTS exchanges_owner_idx ON exchanges (owner_id);

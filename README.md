@@ -76,7 +76,8 @@ in the first two minutes:
 2. Press **Buy** on one: the purchase is recorded and the coupon leaves the list.
 3. Open **Profile**: your details, and the coupon you bought under "Coupons Bought".
 4. Open **Sell** to see the listing form (title, category, price, expiry as DD-MM-YYYY, description).
-5. Open **Exchange**, enter a category such as Food or a price, and search other users' coupons.
+5. Open **Exchange**, enter a category such as Food or a price, and search other users' coupons. Press **Offer a swap** on a match and pick one of your own coupons.
+6. Sign in as the other demo account, open **Profile**, then **Offers**, and accept or decline the swap.
 
 <table>
   <tr>
@@ -100,8 +101,11 @@ in the first two minutes:
 - **Buy**: browse other users' listings, sorted by soonest expiry, with search and filters.
   - Your own listings are not shown to you.
   - A purchase is one database transaction that locks the listing: it fails if the coupon is gone, expired or your own, and two buyers racing for one coupon cannot both win.
-- **Exchange**: search other users' coupons by category or price.
-- **Profile**: your details, your listings (each can be withdrawn after a confirmation), your purchases, and sign out.
+- **Exchange**: search other users' coupons by category or price, and offer one of your own in exchange.
+  - The owner accepts or declines under Profile, Offers; the offerer can cancel while it is pending.
+  - Accepting is one transaction that locks both coupons: both become exchanged, and every other pending offer on either coupon is closed. A coupon that is withdrawn, sold or expired cannot be exchanged, and withdrawing or selling one cancels its pending offers.
+  - Rules: you can only offer a coupon you listed, never ask for your own, and there is one pending offer per pair.
+- **Profile**: your details, your listings (each can be withdrawn after a confirmation), your purchases, your exchange offers, and sign out.
 
 ## Why it exists
 
@@ -151,7 +155,7 @@ is a second guard, so two buyers cannot both get the same coupon.
 | Navigation | React Navigation 7 (stack and bottom tabs) |
 | API | Node 22, Express 5, `pg`, bcrypt, JWT, helmet, express-rate-limit |
 | Database | PostgreSQL 18 on Neon (free), schema in `server/database.sql` applied by `npm run migrate` |
-| Quality | ESLint and Prettier, 25 API tests against real Postgres, `expo-doctor`, Android and web bundle check, GitHub Actions CI |
+| Quality | ESLint and Prettier, 33 API tests against real Postgres, `expo-doctor`, Android and web bundle check, GitHub Actions CI |
 | Hosting | Vercel (web build), Render free web service (API), Neon (database) |
 | Toolchain | Node 22, pinned in `mise.toml` |
 
@@ -187,7 +191,7 @@ mise.toml           Node version pin
 
 | Area | What is in place |
 |---|---|
-| API tests | 25 tests (`server/test`) on real Postgres: validation, auth, ownership, withdraw, the buy transaction including a race for one coupon; pass on 2026-10-18 |
+| API tests | 33 tests (`server/test`) on real Postgres: validation, auth, ownership, withdraw, the buy transaction including a race for one coupon, and the exchange offers (rules, accept, decline, cancel, cancellation on withdraw or sale, expiry, a race between accept, decline and a purchase); pass on 2026-10-23 |
 | Lint and format | ESLint (app and API) clean of errors, Prettier clean on the API, 2026-10-18; two hook-dependency warnings remain in the app |
 | Build check | `npm run check` (lint, `expo-doctor`, Android Hermes and web bundles) passed on 2026-10-18 |
 | Browser run | on 2026-10-18 the live site was driven in Chrome (Playwright): a wrong password refused, the Buy list, a purchase (the coupon left the list and showed under Profile), a reload that kept the session, and a seller withdrawing a listing |
@@ -292,12 +296,11 @@ compute-hours a month, far above a demo.
 
 ## Status and roadmap
 
-**Reached:** live on free tiers (2026-10-18) on an own API and database; the live site was exercised end to end in a browser (sign in, browse, buy, profile, reload, withdraw); 25 API tests and CI. **Not reached:** a run on a physical phone.
+**Reached:** live on free tiers (2026-10-18) on an own API and database; the live site was exercised end to end in a browser (sign in, browse, buy, profile, reload, withdraw); 33 API tests and CI; exchange offers added 2026-10-23. **Not reached:** a run on a physical phone.
 
 **Known limitations**
 
 - The login token is kept in app storage, not an httpOnly cookie, and there is no password reset or email check.
-- The Exchange screen only searches for matching coupons; it does not carry out an exchange.
 - A coupon has no redeemable code field: the app lists and transfers the listing, not the voucher itself.
 - Money is not handled: a purchase marks the coupon sold, with no payment.
 - `npm audit` reports high-severity findings in transitive dependencies of Expo for the app (the API is clean); not fixed yet.
@@ -309,7 +312,7 @@ compute-hours a month, far above a demo.
 - [x] Let a seller withdraw a listing (2026-10-18).
 - [x] An uptime check on `/health`, CodeQL and Dependabot (2026-10-20).
 - [ ] Lighthouse accessibility and performance pass.
-- [ ] Make Exchange create an exchange offer.
+- [x] Make Exchange create an exchange offer, accepted or declined by the owner (2026-10-23).
 
 ## Credits
 
