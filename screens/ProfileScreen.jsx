@@ -1,8 +1,19 @@
 import React, { useState, useEffect, useCallback } from "react";
 import { RefreshControl, StyleSheet, Text, View } from "react-native";
-import { getProfile, saveProfile, listMyCoupons, listPurchases, withdrawCoupon, logout } from "../api";
+import {
+  getProfile,
+  saveProfile,
+  listMyCoupons,
+  listPurchases,
+  listExchanges,
+  withdrawCoupon,
+  acceptExchange,
+  declineExchange,
+  cancelExchange,
+  logout,
+} from "../api";
 import { showError, showSuccess, confirmAction } from "../notify";
-import { Button, Card, CouponCard, Dialog, EmptyState, Field, Loading, Page, Screen, Segmented, rupees } from "../ui";
+import { Button, Card, CouponCard, Dialog, EmptyState, Field, Loading, Page, Pill, Screen, Segmented, rupees } from "../ui";
 import { space, type, useTheme } from "../theme";
 
 const DETAILS = [
@@ -17,12 +28,63 @@ const DETAILS = [
 const pickDetails = (profile) =>
   Object.fromEntries(DETAILS.map(([key]) => [key, profile[key] ?? ""]));
 
+const STATUS_LABEL = { pending: "Pending", accepted: "Accepted", declined: "Declined", cancelled: "Cancelled" };
+const STATUS_TONE = { pending: "warn", declined: "bad", cancelled: "bad" };
+
+// One exchange offer, worded from the viewer's side, with the actions that side may take.
+const OfferCard = ({ offer, onAnswer }) => {
+  const t = useTheme();
+  const sent = offer.role === "offered";
+  const give = sent ? offer.offered : offer.requested;
+  const get = sent ? offer.requested : offer.offered;
+  return (
+    <Card>
+      <Text style={[type.caption, { color: t.muted }]}>{sent ? "YOU OFFERED" : "OFFER FOR YOUR COUPON"}</Text>
+      <View style={styles.cardHead}>
+        <Text style={[type.heading, styles.rowValue, { color: t.text, textAlign: "left" }]}>{give.name}</Text>
+        <Text style={[type.heading, { color: t.accent }]}>{rupees(give.value)}</Text>
+      </View>
+      <Text style={[type.caption, { color: t.muted }]}>in exchange for</Text>
+      <View style={styles.cardHead}>
+        <Text style={[type.heading, styles.rowValue, { color: t.text, textAlign: "left" }]}>{get.name}</Text>
+        <Text style={[type.heading, { color: t.accent }]}>{rupees(get.value)}</Text>
+      </View>
+      <View style={styles.cardHead}>
+        <Pill label={STATUS_LABEL[offer.status]} tone={STATUS_TONE[offer.status]} />
+        {offer.status === "pending" ? (
+          <View style={styles.offerActions}>
+            {sent ? (
+              <Button small variant="secondary" label="Cancel offer" onPress={() => onAnswer(cancelExchange, offer, "Offer cancelled.")} />
+            ) : (
+              <>
+                <Button small variant="secondary" label="Decline" onPress={() => onAnswer(declineExchange, offer, "Offer declined.")} />
+                <Button
+                  small
+                  label="Accept"
+                  onPress={() =>
+                    onAnswer(acceptExchange, offer, `Exchanged. ${offer.offered.name} is yours.`, {
+                      title: "Accept this exchange",
+                      message: `Give up "${offer.requested.name}" and take "${offer.offered.name}"? This cannot be undone.`,
+                      confirm: "Accept",
+                    })
+                  }
+                />
+              </>
+            )}
+          </View>
+        ) : null}
+      </View>
+    </Card>
+  );
+};
+
 const ProfileScreen = () => {
   const t = useTheme();
   const [email, setEmail] = useState("");
   const [details, setDetails] = useState(null);
   const [selling, setSelling] = useState([]);
   const [bought, setBought] = useState([]);
+  const [offers, setOffers] = useState([]);
   const [tab, setTab] = useState("selling");
   const [refreshing, setRefreshing] = useState(false);
   const [editing, setEditing] = useState(null);
@@ -30,11 +92,17 @@ const ProfileScreen = () => {
 
   const load = useCallback(async () => {
     try {
-      const [profile, sold, purchases] = await Promise.all([getProfile(), listMyCoupons(), listPurchases()]);
+      const [profile, sold, purchases, exchanges] = await Promise.all([
+        getProfile(),
+        listMyCoupons(),
+        listPurchases(),
+        listExchanges(),
+      ]);
       setEmail(profile.email);
       setDetails(pickDetails(profile));
       setSelling(sold);
       setBought(purchases);
+      setOffers(exchanges);
     } catch (error) {
       showError(error.message);
       setDetails((current) => current ?? pickDetails({}));
@@ -82,6 +150,21 @@ const ProfileScreen = () => {
     }
   };
 
+  // Accept, decline or cancel. An answer can change coupons too, so reload everything, also on a
+  // failure (the other side may have answered first).
+  const answer = async (call, offer, done, ask) => {
+    if (ask && !(await confirmAction(ask.title, ask.message, ask.confirm))) return;
+    try {
+      await call(offer.id);
+      showSuccess(done);
+    } catch (error) {
+      showError(error.message);
+    }
+    await load();
+  };
+
+  const pending = offers.filter((offer) => offer.status === "pending").length;
+
   if (details === null) return <Screen title="Profile"><Loading /></Screen>;
 
   return (
@@ -108,6 +191,7 @@ const ProfileScreen = () => {
           options={[
             { value: "selling", label: `Selling (${selling.length})` },
             { value: "bought", label: `Bought (${bought.length})` },
+            { value: "offers", label: pending > 0 ? `Offers (${pending})` : "Offers" },
           ]}
         />
 
@@ -122,6 +206,12 @@ const ProfileScreen = () => {
                 action={<Button small variant="danger" label="Withdraw" onPress={() => withdraw(coupon)} />}
               />
             ))
+          )
+        ) : tab === "offers" ? (
+          offers.length === 0 ? (
+            <EmptyState title="No offers" text="Offer a swap from the Exchange tab. Offers you send and receive appear here." />
+          ) : (
+            offers.map((offer) => <OfferCard key={offer.id} offer={offer} onAnswer={answer} />)
           )
         ) : bought.length === 0 ? (
           <EmptyState title="No purchases yet" text="Coupons you buy appear here." />
@@ -174,6 +264,7 @@ const styles = StyleSheet.create({
   row: { flexDirection: "row", justifyContent: "space-between", gap: space.md, paddingTop: space.sm, borderTopWidth: StyleSheet.hairlineWidth },
   rowValue: { flexShrink: 1, textAlign: "right" },
   form: { gap: space.sm + 4 },
+  offerActions: { flexDirection: "row", gap: space.sm },
 });
 
 export default ProfileScreen;

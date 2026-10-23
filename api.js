@@ -85,3 +85,10 @@ export const createCoupon = (coupon) => request("/coupons", { method: "POST", bo
 export const withdrawCoupon = (id) => request(`/coupons/${id}`, { method: "DELETE" });
 export const buyCoupon = (id) => request(`/coupons/${id}/buy`, { method: "POST" });
 export const listPurchases = () => request("/purchases");
+
+export const listExchanges = () => request("/exchanges");
+export const offerExchange = (offeredCouponId, requestedCouponId) =>
+  request("/exchanges", { method: "POST", body: { offeredCouponId, requestedCouponId } });
+export const acceptExchange = (id) => request(`/exchanges/${id}/accept`, { method: "POST" });
+export const declineExchange = (id) => request(`/exchanges/${id}/decline`, { method: "POST" });
+export const cancelExchange = (id) => request(`/exchanges/${id}/cancel`, { method: "POST" });

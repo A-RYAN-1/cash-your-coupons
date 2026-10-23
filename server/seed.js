@@ -47,6 +47,17 @@ const COUPONS = [
   },
 ];
 
+// The buyer lists one coupon too, so the two demo accounts can offer each other a swap.
+const BUYER_COUPONS = [
+  {
+    name: "Book Haven 150 off",
+    value: 150,
+    details: "Any paperback above 400, one use",
+    expiryDate: days(25),
+    category: "Others",
+  },
+];
+
 async function ensureUser(email, name, hash) {
   await pool.query(
     "INSERT INTO users (email, password, name) VALUES ($1, $2, $3) ON CONFLICT (email) DO NOTHING",
@@ -59,24 +70,29 @@ async function ensureUser(email, name, hash) {
 (async () => {
   const hash = await bcrypt.hash(PASSWORD, 10);
   const sellerId = await ensureUser(SELLER, "Demo Seller", hash);
-  await ensureUser(BUYER, "Demo Buyer", hash);
+  const buyerId = await ensureUser(BUYER, "Demo Buyer", hash);
 
-  const listed = await pool.query(
-    "SELECT name FROM coupons WHERE seller_id = $1 AND status = 'listed'",
-    [sellerId]
-  );
-  const have = new Set(listed.rows.map((row) => row.name));
   let added = 0;
-  for (const c of COUPONS.filter((c) => !have.has(c.name))) {
-    await pool.query(
-      "INSERT INTO coupons (seller_id, name, value, details, category, expiry_date) VALUES ($1, $2, $3, $4, $5, $6)",
-      [sellerId, c.name, c.value, c.details, c.category, c.expiryDate]
+  let kept = 0;
+  for (const [ownerId, coupons] of [
+    [sellerId, COUPONS],
+    [buyerId, BUYER_COUPONS],
+  ]) {
+    const listed = await pool.query(
+      "SELECT name FROM coupons WHERE seller_id = $1 AND status = 'listed'",
+      [ownerId]
     );
-    added += 1;
+    const have = new Set(listed.rows.map((row) => row.name));
+    for (const c of coupons.filter((c) => !have.has(c.name))) {
+      await pool.query(
+        "INSERT INTO coupons (seller_id, name, value, details, category, expiry_date) VALUES ($1, $2, $3, $4, $5, $6)",
+        [ownerId, c.name, c.value, c.details, c.category, c.expiryDate]
+      );
+      added += 1;
+    }
+    kept += coupons.length - coupons.filter((c) => !have.has(c.name)).length;
   }
-  console.log(
-    `demo accounts ready, ${added} coupons added, ${COUPONS.length - added} already listed`
-  );
+  console.log(`demo accounts ready, ${added} coupons added, ${kept} already listed`);
   await pool.end();
 })().catch((err) => {
   console.error("seed failed:", err.message);
