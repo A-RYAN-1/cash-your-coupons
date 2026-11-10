@@ -8,10 +8,19 @@ const { parseId } = require("./validation");
 const EXCHANGE_SELECT = `
   SELECT e.id, e.status, e.created_at, e.resolved_at, e.offerer_id, e.owner_id,
          o.id AS offered_id, o.name AS offered_name, o.value AS offered_value,
-         r.id AS requested_id, r.name AS requested_name, r.value AS requested_value
+         o.voucher_code AS offered_code,
+         r.id AS requested_id, r.name AS requested_name, r.value AS requested_value,
+         r.voucher_code AS requested_code
   FROM exchanges e
   JOIN coupons o ON o.id = e.offered_coupon_id
   JOIN coupons r ON r.id = e.requested_coupon_id`;
+
+// Only after an accepted swap does each side see the code of the coupon they received; before
+// that, a pending offer shows no code at all.
+const receivedCode = (row, userId) => {
+  if (row.status !== "accepted") return null;
+  return row.offerer_id === userId ? row.requested_code : row.offered_code;
+};
 
 const toExchange = (row, userId) => ({
   id: row.id,
@@ -19,6 +28,7 @@ const toExchange = (row, userId) => ({
   role: row.offerer_id === userId ? "offered" : "received",
   offered: { id: row.offered_id, name: row.offered_name, value: row.offered_value },
   requested: { id: row.requested_id, name: row.requested_name, value: row.requested_value },
+  receivedCode: receivedCode(row, userId),
   createdAt: row.created_at,
   resolvedAt: row.resolved_at,
 });

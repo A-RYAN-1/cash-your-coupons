@@ -13,7 +13,7 @@ import {
   logout,
 } from "../api";
 import { showError, showSuccess, confirmAction } from "../notify";
-import { Button, Card, CouponCard, Dialog, EmptyState, Field, Loading, Page, Pill, Screen, Segmented, rupees } from "../ui";
+import { Button, Card, CodeBox, CouponCard, Dialog, EmptyState, Field, Loading, Page, Pill, Screen, Segmented, rupees } from "../ui";
 import { space, type, useTheme } from "../theme";
 
 const DETAILS = [
@@ -74,6 +74,13 @@ const OfferCard = ({ offer, onAnswer }) => {
           </View>
         ) : null}
       </View>
+      {offer.status === "accepted" ? (
+        offer.receivedCode ? (
+          <CodeBox label={`Voucher code for ${get.name}`} code={offer.receivedCode} />
+        ) : (
+          <Text style={[type.caption, { color: t.muted }]}>The other person did not add a voucher code for {get.name}.</Text>
+        )
+      ) : null}
     </Card>
   );
 };
@@ -203,6 +210,7 @@ const ProfileScreen = () => {
               <CouponCard
                 key={coupon.id}
                 coupon={coupon}
+                code={coupon.voucherCode ? { label: "Your voucher code (hidden from buyers until they pay)", value: coupon.voucherCode } : null}
                 action={<Button small variant="danger" label="Withdraw" onPress={() => withdraw(coupon)} />}
               />
             ))
@@ -222,6 +230,11 @@ const ProfileScreen = () => {
                 <Text style={[type.heading, { color: t.text }]}>{purchase.couponName}</Text>
                 <Text style={[type.heading, { color: t.accent }]}>{rupees(purchase.couponValue)}</Text>
               </View>
+              {purchase.voucherCode ? (
+                <CodeBox label="Voucher code" code={purchase.voucherCode} />
+              ) : (
+                <Text style={[type.caption, { color: t.muted }]}>The seller did not add a voucher code. Ask them for it.</Text>
+              )}
             </Card>
           ))
         )}

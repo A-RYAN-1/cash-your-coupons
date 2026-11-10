@@ -32,6 +32,13 @@ ALTER TABLE coupons DROP CONSTRAINT IF EXISTS coupons_status_check;
 ALTER TABLE coupons ADD CONSTRAINT coupons_status_check
   CHECK (status IN ('listed', 'sold', 'withdrawn', 'exchanged'));
 
+-- Optional voucher code. Never returned by browse or search; the buyer sees it only after a
+-- purchase, and each side of an accepted exchange sees the code of the coupon they received.
+ALTER TABLE coupons ADD COLUMN IF NOT EXISTS voucher_code TEXT;
+ALTER TABLE coupons DROP CONSTRAINT IF EXISTS coupons_voucher_code_check;
+ALTER TABLE coupons ADD CONSTRAINT coupons_voucher_code_check
+  CHECK (voucher_code IS NULL OR char_length(voucher_code) BETWEEN 1 AND 100);
+
 -- One row per sale; the unique coupon_id means a coupon can be bought only once.
 CREATE TABLE IF NOT EXISTS purchases (
   id           UUID PRIMARY KEY DEFAULT gen_random_uuid(),

@@ -9,6 +9,7 @@ const CATEGORIES = [
   "Others",
 ];
 const MAX_VALUE = 100000;
+const MAX_CODE = 100;
 const PROFILE_FIELDS = { name: 100, gender: 20, age: 3, phone: 20, address: 200, dob: 10 };
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -31,9 +32,24 @@ function validateCredentials(body, { strictPassword = true } = {}) {
   return { email: email.trim().toLowerCase(), password };
 }
 
+const hasControlCharacter = (text) =>
+  [...text].some((ch) => ch.charCodeAt(0) < 32 || ch.charCodeAt(0) === 127);
+
+// Optional. Returns null when absent or blank, the trimmed code, or false when it is not valid.
+function normalizeVoucherCode(raw) {
+  if (raw === undefined || raw === null) return null;
+  if (typeof raw !== "string") return false;
+  const code = raw.trim();
+  if (code.length === 0) return null;
+  if (code.length > MAX_CODE || hasControlCharacter(code)) {
+    return false;
+  }
+  return code;
+}
+
 function validateCoupon(body, now = new Date()) {
   if (!isObject(body)) return { error: "Request body must be a JSON object" };
-  const { name, value, details = "", category, expiryDate } = body;
+  const { name, value, details = "", category, expiryDate, voucherCode } = body;
   if (typeof name !== "string" || name.trim().length === 0 || name.trim().length > 100) {
     return { error: "Name is required and must be at most 100 characters" };
   }
@@ -46,6 +62,12 @@ function validateCoupon(body, now = new Date()) {
   if (!CATEGORIES.includes(category)) {
     return { error: `Category must be one of: ${CATEGORIES.join(", ")}` };
   }
+  const code = normalizeVoucherCode(voucherCode);
+  if (code === false) {
+    return {
+      error: `Voucher code must be 1 to ${MAX_CODE} visible characters, without line breaks`,
+    };
+  }
   const expiry = typeof expiryDate === "string" ? new Date(expiryDate) : null;
   if (!expiry || Number.isNaN(expiry.getTime())) {
     return { error: "Expiry date must be an ISO date" };
@@ -57,6 +79,7 @@ function validateCoupon(body, now = new Date()) {
       value: Math.round(value * 100) / 100,
       details: details.trim(),
       category,
+      voucherCode: code,
       expiryDate: expiry.toISOString(),
     },
   };

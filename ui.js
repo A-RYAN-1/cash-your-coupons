@@ -4,6 +4,7 @@ import React, { useEffect, useMemo, useState } from "react";
 import {
   ActivityIndicator,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -255,7 +256,31 @@ const couponStyles = (t) => ({
   tags: { flexDirection: "row", flexWrap: "wrap", gap: space.sm, flexShrink: 1 },
 });
 
-export function CouponCard({ coupon, action }) {
+const codeStyles = (t) => ({
+  box: { gap: 2, padding: space.sm + 2, borderRadius: radius.md, backgroundColor: t.surfaceAlt },
+  label: { ...type.caption, color: t.muted },
+  code: {
+    ...type.heading,
+    color: t.text,
+    fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "ui-monospace, Menlo, Consolas, monospace" }),
+    letterSpacing: 0.5,
+  },
+});
+
+// A voucher code in a box the user can select and copy. `label` says who may see it.
+export function CodeBox({ label, code }) {
+  const s = useStyles(codeStyles);
+  return (
+    <View style={s.box}>
+      <Text style={s.label}>{label}</Text>
+      <Text selectable style={s.code}>
+        {code}
+      </Text>
+    </View>
+  );
+}
+
+export function CouponCard({ coupon, action, code }) {
   const s = useStyles(couponStyles);
   const expiry = expiryInfo(coupon.expiryDate);
   return (
@@ -273,9 +298,11 @@ export function CouponCard({ coupon, action }) {
         <View style={s.tags}>
           {coupon.category ? <Pill label={coupon.category} /> : null}
           <Pill label={expiry.label} tone={expiry.tone} />
+          {coupon.hasCode ? <Pill label="Voucher code included" /> : null}
         </View>
         {action}
       </View>
+      {code ? <CodeBox label={code.label} code={code.value} /> : null}
     </Card>
   );
 }
