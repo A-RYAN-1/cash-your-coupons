@@ -17,7 +17,9 @@ const {
 const logger = require("./logger");
 const { registerExchangeRoutes, cancelOffersOn } = require("./exchanges");
 
-const COUPON_COLUMNS = "id, seller_id, name, value, details, category, expiry_date, created_at";
+// The code itself is never selected for a listing other people can see, only whether one exists.
+const COUPON_COLUMNS =
+  "id, seller_id, name, value, details, category, expiry_date, created_at, (voucher_code IS NOT NULL) AS has_code";
 const PROFILE_COLUMNS = "id, email, name, gender, age, phone, address, dob";
 
 // The shape the app already used for a listing, minus the seller's email.
@@ -30,6 +32,7 @@ const toCoupon = (row) => ({
   category: row.category,
   expiryDate: row.expiry_date,
   createdAt: row.created_at,
+  hasCode: row.has_code,
 });
 
 const toPurchase = (row) => ({
@@ -37,6 +40,7 @@ const toPurchase = (row) => ({
   couponId: row.coupon_id,
   couponName: row.coupon_name,
   couponValue: row.coupon_value,
+  voucherCode: row.voucher_code,
   createdAt: row.created_at,
 });
 
@@ -214,11 +218,12 @@ function createApp({ authLimit = 20, apiLimit = 300 } = {}) {
   app.get("/coupons/mine", authenticate, async (req, res) => {
     try {
       const result = await pool.query(
-        `SELECT ${COUPON_COLUMNS} FROM coupons
+        `SELECT ${COUPON_COLUMNS}, voucher_code FROM coupons
          WHERE seller_id = $1 AND status = 'listed' ORDER BY created_at DESC, id ASC`,
         [req.user.id]
       );
-      res.json(result.rows.map(toCoupon));
+      // The seller may see the code they entered.
+      res.json(result.rows.map((row) => ({ ...toCoupon(row), voucherCode: row.voucher_code })));
     } catch (err) {
       return serverError(req, res, err, "list own coupons failed");
     }
@@ -229,9 +234,17 @@ function createApp({ authLimit = 20, apiLimit = 300 } = {}) {
     if (error) return fail(res, 400, error);
     try {
       const result = await pool.query(
-        `INSERT INTO coupons (seller_id, name, value, details, category, expiry_date)
-         VALUES ($1, $2, $3, $4, $5, $6) RETURNING ${COUPON_COLUMNS}`,
-        [req.user.id, value.name, value.value, value.details, value.category, value.expiryDate]
+        `INSERT INTO coupons (seller_id, name, value, details, category, expiry_date, voucher_code)
+         VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING ${COUPON_COLUMNS}`,
+        [
+          req.user.id,
+          value.name,
+          value.value,
+          value.details,
+          value.category,
+          value.expiryDate,
+          value.voucherCode,
+        ]
       );
       res.status(201).json(toCoupon(result.rows[0]));
     } catch (err) {
@@ -275,7 +288,7 @@ function createApp({ authLimit = 20, apiLimit = 300 } = {}) {
     try {
       await client.query("BEGIN");
       const found = await client.query(
-        "SELECT seller_id, name, value, status, expiry_date FROM coupons WHERE id = $1 FOR UPDATE",
+        "SELECT seller_id, name, value, status, expiry_date, voucher_code FROM coupons WHERE id = $1 FOR UPDATE",
         [id]
       );
       const coupon = found.rows[0];
@@ -297,7 +310,8 @@ function createApp({ authLimit = 20, apiLimit = 300 } = {}) {
         [id, req.user.id, coupon.seller_id, coupon.name, coupon.value]
       );
       await client.query("COMMIT");
-      res.status(201).json(toPurchase(purchase.rows[0]));
+      // The buyer sees the code only now, in the response to their own purchase.
+      res.status(201).json(toPurchase({ ...purchase.rows[0], voucher_code: coupon.voucher_code }));
     } catch (err) {
       await client.query("ROLLBACK").catch(() => {});
       return serverError(req, res, err, "buy coupon failed");
@@ -309,8 +323,9 @@ function createApp({ authLimit = 20, apiLimit = 300 } = {}) {
   app.get("/purchases", authenticate, async (req, res) => {
     try {
       const result = await pool.query(
-        `SELECT id, coupon_id, coupon_name, coupon_value, created_at FROM purchases
-         WHERE buyer_id = $1 ORDER BY created_at DESC, id ASC`,
+        `SELECT p.id, p.coupon_id, p.coupon_name, p.coupon_value, p.created_at, c.voucher_code
+         FROM purchases p JOIN coupons c ON c.id = p.coupon_id
+         WHERE p.buyer_id = $1 ORDER BY p.created_at DESC, p.id ASC`,
         [req.user.id]
       );
       res.json(result.rows.map(toPurchase));

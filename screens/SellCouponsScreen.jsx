@@ -41,6 +41,7 @@ const SellCouponsScreen = () => {
   const [details, setDetails] = useState("");
   const [category, setCategory] = useState("");
   const [expiry, setExpiry] = useState("");
+  const [voucherCode, setVoucherCode] = useState("");
   const [busy, setBusy] = useState(false);
 
   const submit = async () => {
@@ -66,12 +67,14 @@ const SellCouponsScreen = () => {
         details: details.trim(),
         expiryDate: date.toISOString(),
         category,
+        voucherCode: voucherCode.trim() || undefined,
       });
       setName("");
       setValue("");
       setDetails("");
       setCategory("");
       setExpiry("");
+      setVoucherCode("");
       showSuccess("Your coupon is listed. Find it under Profile, Selling.");
     } catch (error) {
       showError(error.message);
@@ -119,6 +122,17 @@ const SellCouponsScreen = () => {
             multiline
             placeholder="What it gives, minimum order, terms"
             maxLength={500}
+          />
+
+          <Field
+            label="Voucher code (optional)"
+            hint="Buyers see this only after they pay. It is never shown in the listing."
+            value={voucherCode}
+            onChangeText={setVoucherCode}
+            autoCapitalize="none"
+            autoCorrect={false}
+            placeholder="The code the buyer will redeem"
+            maxLength={100}
           />
 
           <Button label="List coupon" onPress={submit} loading={busy} />

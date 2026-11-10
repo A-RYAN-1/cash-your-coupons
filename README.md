@@ -102,12 +102,15 @@ in the first two minutes:
 - **Sell**: list a coupon with name, value, details, category and expiry date.
   - Categories are chips: Food, Clothes, Travel and others.
   - Expiry is typed as DD-MM-YYYY, with one-tap shortcuts for 1 week, 1 month and 3 months.
+  - An optional voucher code (up to 100 characters). Listings show only a "Voucher code included" tag; the code itself is never sent by browse or search.
 - **Buy**: browse other users' listings, sorted by soonest expiry, with search and filters.
   - Your own listings are not shown to you.
+  - The buyer receives the voucher code only after the purchase, in the purchase response and under Profile, Bought. The seller sees the code they entered under Profile, Selling; nobody else does.
   - A purchase is one database transaction that locks the listing: it fails if the coupon is gone, expired or your own, and two buyers racing for one coupon cannot both win.
 - **Exchange**: search other users' coupons by category or price, and offer one of your own in exchange.
   - The owner accepts or declines under Profile, Offers; the offerer can cancel while it is pending.
   - Accepting is one transaction that locks both coupons: both become exchanged, and every other pending offer on either coupon is closed. A coupon that is withdrawn, sold or expired cannot be exchanged, and withdrawing or selling one cancels its pending offers.
+  - After an accepted swap each side sees the voucher code of the coupon they received, on the accepted offer. A pending, declined or cancelled offer shows no code.
   - Rules: you can only offer a coupon you listed, never ask for your own, and there is one pending offer per pair.
 - **Profile**: your details, your listings (each can be withdrawn after a confirmation), your purchases, your exchange offers, and sign out.
 
@@ -195,7 +198,7 @@ mise.toml           Node version pin
 
 | Area | What is in place |
 |---|---|
-| API tests | 33 tests (`server/test`) on real Postgres: validation, auth, ownership, withdraw, the buy transaction including a race for one coupon, and the exchange offers (rules, accept, decline, cancel, cancellation on withdraw or sale, expiry, a race between accept, decline and a purchase); pass on 2026-10-23 |
+| API tests | 41 tests (`server/test`) on real Postgres: validation, auth, ownership, withdraw, the buy transaction including a race for one coupon, the exchange offers (rules, accept, decline, cancel, cancellation on withdraw or sale, expiry, a race between accept, decline and a purchase) and the voucher code (never in browse, search or a pending offer; revealed to the buyer after the purchase and to each side after an accepted swap); pass on 2026-11-10 |
 | Lint and format | ESLint (app and API) clean of errors, Prettier clean on the API, 2026-10-18; two hook-dependency warnings remain in the app |
 | Build check | `npm run check` (lint, `expo-doctor`, Android Hermes and web bundles) passed on 2026-10-18 |
 | Browser run | on 2026-10-18 the live site was driven in Chrome (Playwright): a wrong password refused, the Buy list, a purchase (the coupon left the list and showed under Profile), a reload that kept the session, and a seller withdrawing a listing. On 2026-10-23 the same was done for exchange offers on the live site: the demo seller offered a swap, the demo buyer accepted it, and the coupons changed hands |
@@ -300,12 +303,12 @@ compute-hours a month, far above a demo.
 
 ## Status and roadmap
 
-**Reached:** live on free tiers (2026-10-18) on an own API and database; the live site was exercised end to end in a browser (sign in, browse, buy, profile, reload, withdraw); 33 API tests and CI; exchange offers added and checked on the live site 2026-10-23. **Not reached:** a run on a physical phone.
+**Reached:** live on free tiers (2026-10-18) on an own API and database; the live site was exercised end to end in a browser (sign in, browse, buy, profile, reload, withdraw); 41 API tests and CI; exchange offers added and checked on the live site 2026-10-23; voucher codes added 2026-11-10. **Not reached:** a run on a physical phone.
 
 **Known limitations**
 
 - The login token is kept in app storage, not an httpOnly cookie, and there is no password reset or email check.
-- A coupon has no redeemable code field: the app lists and transfers the listing, not the voucher itself.
+- The voucher code is stored as plain text in the database and shown to the buyer as typed; the app does not check that a code is valid with the brand, so a buyer relies on the seller. There is no dispute or refund flow.
 - Money is not handled: a purchase marks the coupon sold, with no payment.
 - `npm audit` reports high-severity findings in transitive dependencies of Expo for the app (the API is clean); not fixed yet.
 - No screen tests; two lint hook-dependency warnings.
@@ -317,6 +320,8 @@ compute-hours a month, far above a demo.
 - [x] An uptime check on `/health`, CodeQL and Dependabot (2026-10-20).
 - [ ] Lighthouse accessibility and performance pass.
 - [x] Make Exchange create an exchange offer, accepted or declined by the owner (2026-10-23).
+- [x] A voucher code on a listing, revealed to the buyer only after purchase (2026-11-10).
+- [ ] Price and category suggestion for a listing, measured against a keyword baseline.
 
 ## Credits
 

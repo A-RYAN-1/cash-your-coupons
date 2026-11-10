@@ -65,3 +65,17 @@ test("parseId accepts only UUIDs", () => {
   assert.equal(parseId("1; DROP TABLE coupons"), null);
   assert.equal(parseId(undefined), null);
 });
+
+test("coupon: the voucher code is optional, trimmed, and refused when it is not plain text", () => {
+  const withCode = (voucherCode) => validateCoupon({ ...good, voucherCode }, now);
+  assert.equal(validateCoupon(good, now).value.voucherCode, null);
+  assert.equal(withCode("").value.voucherCode, null);
+  assert.equal(withCode("   ").value.voucherCode, null);
+  assert.equal(withCode("  SAVE-30-XYZ  ").value.voucherCode, "SAVE-30-XYZ");
+  assert.equal(withCode("x".repeat(100)).value.voucherCode.length, 100);
+  assert.ok(withCode("x".repeat(101)).error);
+  assert.ok(withCode("two\nlines").error);
+  assert.ok(withCode("tab\there").error);
+  assert.ok(withCode(12345).error);
+  assert.ok(withCode({ code: "a" }).error);
+});

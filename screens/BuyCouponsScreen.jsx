@@ -51,7 +51,9 @@ const BuyCouponsScreen = () => {
     setBuying(coupon.id);
     try {
       await buyCoupon(coupon.id);
-      showSuccess(`You bought ${coupon.name} for ${rupees(coupon.value)}.`);
+      showSuccess(
+        `You bought ${coupon.name} for ${rupees(coupon.value)}.${coupon.hasCode ? " Your voucher code is under Profile, Bought." : ""}`
+      );
       setCoupons((list) => list.filter((c) => c.id !== coupon.id));
     } catch (error) {
       showError(error.message);

@@ -418,3 +418,100 @@ test("exchange: two owners racing to answer one offer, exactly one outcome", asy
   else assert.notEqual(await statusOf(theirs), "exchanged");
   assert.ok(final !== "pending");
 });
+
+// Voucher codes: a listing shows only that a code exists; the code reaches a buyer after the
+// purchase and each side of an accepted swap after the accept, and nobody else, ever.
+const CODE_A = `SECRET-A-${suffix}`;
+const CODE_B = `SECRET-B-${suffix}`;
+const codeNeverIn = (res) => assert.ok(!JSON.stringify(res.body).includes("SECRET-"));
+
+test("voucher code: browse and search show a flag, never the code", async () => {
+  const made = await create(
+    seller,
+    listing({ name: `code-browse-${suffix}`, voucherCode: CODE_A })
+  );
+  assert.equal(made.status, 201);
+  assert.equal(made.body.hasCode, true);
+  codeNeverIn(made);
+  const plain = await create(seller, listing({ name: `code-none-${suffix}` })).expect(201);
+  assert.equal(plain.body.hasCode, false);
+
+  const browse = await request(app).get("/coupons").set(auth(buyer)).expect(200);
+  codeNeverIn(browse);
+  assert.equal(browse.body.find((c) => c.id === made.body.id).hasCode, true);
+  assert.equal(browse.body.find((c) => c.id === plain.body.id).hasCode, false);
+  const search = await request(app).get("/coupons?category=Food").set(auth(other)).expect(200);
+  codeNeverIn(search);
+});
+
+test("voucher code: the seller sees their own code, no one else does", async () => {
+  const made = await create(seller, listing({ name: `code-own-${suffix}`, voucherCode: CODE_A }));
+  const mine = await request(app).get("/coupons/mine").set(auth(seller)).expect(200);
+  assert.equal(mine.body.find((c) => c.id === made.body.id).voucherCode, CODE_A);
+  const theirs = await request(app).get("/coupons/mine").set(auth(buyer)).expect(200);
+  codeNeverIn(theirs);
+});
+
+test("voucher code: a bad code is refused and nothing is listed", async () => {
+  await create(seller, listing({ voucherCode: "line\nbreak" })).expect(400);
+  await create(seller, listing({ voucherCode: "x".repeat(101) })).expect(400);
+  await create(seller, listing({ voucherCode: 42 })).expect(400);
+});
+
+test("voucher code: the buyer gets it with the purchase and in history, the others never", async () => {
+  const made = await create(seller, listing({ name: `code-buy-${suffix}`, voucherCode: CODE_A }));
+  const id = made.body.id;
+  const bought = await request(app).post(`/coupons/${id}/buy`).set(auth(buyer)).expect(201);
+  assert.equal(bought.body.voucherCode, CODE_A);
+  const history = await request(app).get("/purchases").set(auth(buyer)).expect(200);
+  assert.equal(history.body.find((p) => p.couponId === id).voucherCode, CODE_A);
+  codeNeverIn(await request(app).get("/purchases").set(auth(other)).expect(200));
+  codeNeverIn(await request(app).get("/coupons").set(auth(other)).expect(200));
+  await request(app).post(`/coupons/${id}/buy`).set(auth(other)).expect(404);
+});
+
+test("voucher code: a purchase of a coupon without a code returns null", async () => {
+  const made = await create(seller, listing({ name: `code-null-${suffix}` })).expect(201);
+  const bought = await request(app)
+    .post(`/coupons/${made.body.id}/buy`)
+    .set(auth(buyer))
+    .expect(201);
+  assert.equal(bought.body.voucherCode, null);
+});
+
+test("voucher code: an exchange reveals each side the code it received, only after accept", async () => {
+  const mine = await create(
+    seller,
+    listing({ name: `code-x-mine-${suffix}`, voucherCode: CODE_A })
+  );
+  const theirs = await create(
+    buyer,
+    listing({ name: `code-x-theirs-${suffix}`, voucherCode: CODE_B })
+  );
+  const made = await offer(seller, mine.body.id, theirs.body.id).expect(201);
+  assert.equal(made.body.receivedCode, null);
+  const pending = await request(app).get("/exchanges").set(auth(buyer)).expect(200);
+  codeNeverIn(pending);
+
+  const accepted = await post(`/exchanges/${made.body.id}/accept`, buyer).expect(200);
+  assert.equal(accepted.body.receivedCode, CODE_A);
+  const offererView = await request(app).get("/exchanges").set(auth(seller)).expect(200);
+  assert.equal(offererView.body.find((e) => e.id === made.body.id).receivedCode, CODE_B);
+  const strangerView = await request(app).get("/exchanges").set(auth(other)).expect(200);
+  codeNeverIn(strangerView);
+});
+
+test("voucher code: a declined or cancelled offer never reveals a code", async () => {
+  const mine = await create(
+    seller,
+    listing({ name: `code-d-mine-${suffix}`, voucherCode: CODE_A })
+  );
+  const theirs = await create(
+    buyer,
+    listing({ name: `code-d-theirs-${suffix}`, voucherCode: CODE_B })
+  );
+  const made = await offer(seller, mine.body.id, theirs.body.id).expect(201);
+  const declined = await post(`/exchanges/${made.body.id}/decline`, buyer).expect(200);
+  assert.equal(declined.body.receivedCode, null);
+  codeNeverIn(declined);
+});
