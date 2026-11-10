@@ -33,7 +33,7 @@
   </a>
 </p>
 
-<p align="center"><sub>Last updated: 2026-10-23 &middot; Live on free tiers (Vercel for the web build, Render for the API, Neon for Postgres); also runs in Expo Go</sub></p>
+<p align="center"><sub>Last updated: 2026-11-10 &middot; Live on free tiers (Vercel for the web build, Render for the API, Neon for Postgres); also runs in Expo Go</sub></p>
 
 ---
 
@@ -73,20 +73,20 @@ demo data is reset (see [Run it locally](#run-it-locally), `npm run seed` in `se
 in the first two minutes:
 
 1. On **Buy**, see five coupons from a demo seller grouped by how soon they expire, and use the search box and the filter.
-2. Press **Buy** on one: the purchase is recorded and the coupon leaves the list.
-3. Open **Profile**: your details, and the coupon you bought under "Coupons Bought".
-4. Open **Sell** to see the listing form (title, category, price, expiry as DD-MM-YYYY, description).
+2. Press **Buy** on one: the purchase is recorded and the coupon leaves the list. A listing tagged "Voucher code included" hides its code until you buy it.
+3. Open **Profile**, then **Bought**: the coupon you bought and, if the seller added one, its voucher code.
+4. Open **Sell** to see the listing form (title, category, price, expiry as DD-MM-YYYY, description, and an optional voucher code that buyers see only after paying).
 5. Open **Exchange**, enter a category such as Food or a price, and search other users' coupons. Press **Offer a swap** on a match and pick one of your own coupons.
 6. Sign in as the other demo account, open **Profile**, then **Offers**, and accept or decline the swap.
 
 <table>
   <tr>
-    <td width="50%"><img src="docs/images/buy.png" alt="Buy screen with coupons grouped by expiry"><p align="center"><sub>Buy: listings sorted by soonest expiry (<a href="#how-it-works">how a purchase works</a>)</sub></p></td>
-    <td width="50%"><img src="docs/images/sell.png" alt="Sell form"><p align="center"><sub>Sell: list a coupon (<a href="#features">features</a>)</sub></p></td>
+    <td width="50%"><img src="docs/images/buy.png" alt="Buy screen with coupons grouped by expiry"><p align="center"><sub>Buy: listings sorted by soonest expiry; a tag shows a voucher code is included, never the code (<a href="#how-it-works">how a purchase works</a>)</sub></p></td>
+    <td width="50%"><img src="docs/images/sell.png" alt="Sell form with an optional voucher code field"><p align="center"><sub>Sell: list a coupon, optionally with a voucher code buyers see only after paying (<a href="#features">features</a>)</sub></p></td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/images/exchange.png" alt="Exchange search with one match and an Offer a swap button"><p align="center"><sub>Exchange: find a match and offer a swap (<a href="#features">features</a>)</sub></p></td>
-    <td width="50%"><img src="docs/images/profile.png" alt="Profile with one coupon bought"><p align="center"><sub>Profile: details, listings, purchases (<a href="#features">features</a>)</sub></p></td>
+    <td width="50%"><img src="docs/images/profile.png" alt="Profile, Bought tab: two purchases with their voucher codes and one whose seller added no code"><p align="center"><sub>Profile, Bought: the voucher code is revealed after purchase (<a href="#features">features</a>)</sub></p></td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/images/offers.png" alt="Profile, Offers tab: a pending offer of one coupon for another with Decline and Accept buttons"><p align="center"><sub>Offers: the owner accepts or declines a swap (<a href="#features">features</a>)</sub></p></td>
@@ -302,6 +302,8 @@ compute-hours a month, far above a demo.
 </details>
 
 ## Status and roadmap
+
+**Live check 2026-11-10 (production API, demo accounts):** a listing created with a code returned `hasCode: true` and no code in the buyer's browse response; the purchase returned the code, `GET /purchases` returned it to the buyer, and the seller's purchase list did not contain it. **Not covered by that check:** the exchange reveal was covered by the API tests only, not driven on the live site.
 
 **Reached:** live on free tiers (2026-10-18) on an own API and database; the live site was exercised end to end in a browser (sign in, browse, buy, profile, reload, withdraw); 41 API tests and CI; exchange offers added and checked on the live site 2026-10-23; voucher codes added 2026-11-10. **Not reached:** a run on a physical phone.
 
