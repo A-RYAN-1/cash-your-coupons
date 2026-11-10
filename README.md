@@ -162,7 +162,7 @@ is a second guard, so two buyers cannot both get the same coupon.
 | Navigation | React Navigation 7 (stack and bottom tabs) |
 | API | Node 22, Express 5, `pg`, bcrypt, JWT, helmet, express-rate-limit |
 | Database | PostgreSQL 18 on Neon (free), schema in `server/database.sql` applied by `npm run migrate` |
-| Quality | ESLint and Prettier, 33 API tests against real Postgres, `expo-doctor`, Android and web bundle check, GitHub Actions CI |
+| Quality | ESLint and Prettier, 41 API tests against real Postgres, `expo-doctor`, Android and web bundle check, GitHub Actions CI |
 | Hosting | Vercel (web build), Render free web service (API), Neon (database) |
 | Toolchain | Node 22, pinned in `mise.toml` |
 
