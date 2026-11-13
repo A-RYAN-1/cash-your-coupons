@@ -15,6 +15,7 @@ const {
   parseId,
 } = require("./validation");
 const logger = require("./logger");
+const { suggest } = require("./suggest");
 const { registerExchangeRoutes, cancelOffersOn } = require("./exchanges");
 
 // The code itself is never selected for a listing other people can see, only whether one exists.
@@ -250,6 +251,18 @@ function createApp({ authLimit = 20, apiLimit = 300 } = {}) {
     } catch (err) {
       return serverError(req, res, err, "create coupon failed");
     }
+  });
+
+  // A category suggestion from the name and details; the seller confirms it in the app.
+  app.post("/coupons/suggest", authenticate, (req, res) => {
+    const { name, details = "" } = req.body || {};
+    if (typeof name !== "string" || name.trim().length === 0 || name.length > 100) {
+      return fail(res, 400, "Name is required and must be at most 100 characters");
+    }
+    if (typeof details !== "string" || details.length > 500) {
+      return fail(res, 400, "Details must be at most 500 characters");
+    }
+    res.json(suggest(name, details));
   });
 
   // Withdraw: the seller takes a listing off sale. It stays in the table as 'withdrawn'.
