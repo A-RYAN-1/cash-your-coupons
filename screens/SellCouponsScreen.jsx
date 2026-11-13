@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from "react-native";
-import { createCoupon } from "../api";
+import { createCoupon, suggestCategory } from "../api";
 import { showError, showSuccess } from "../notify";
 import { Button, ChipRow, Field, Page, Screen } from "../ui";
 import { space, type, useTheme } from "../theme";
@@ -43,6 +43,30 @@ const SellCouponsScreen = () => {
   const [expiry, setExpiry] = useState("");
   const [voucherCode, setVoucherCode] = useState("");
   const [busy, setBusy] = useState(false);
+  const [suggesting, setSuggesting] = useState(false);
+  const [hint, setHint] = useState("");
+
+  // Fills the category chip from the name and details; the seller can still pick another.
+  const suggest = async () => {
+    if (!name.trim()) {
+      showError("Enter the brand or coupon name first.");
+      return;
+    }
+    setSuggesting(true);
+    try {
+      const result = await suggestCategory(name.trim(), details.trim());
+      setCategory(result.category);
+      setHint(
+        result.confidence === 0
+          ? "No clue in the text, so this is a default. Pick the right category."
+          : `Suggested from the name and details (${Math.round(result.confidence * 100)}% sure). Change it if it is wrong.`
+      );
+    } catch (error) {
+      showError(error.message);
+    } finally {
+      setSuggesting(false);
+    }
+  };
 
   const submit = async () => {
     if (!name.trim() || !value || !details.trim() || !category || !expiry) {
@@ -73,6 +97,7 @@ const SellCouponsScreen = () => {
       setValue("");
       setDetails("");
       setCategory("");
+      setHint("");
       setExpiry("");
       setVoucherCode("");
       showSuccess("Your coupon is listed. Find it under Profile, Selling.");
@@ -91,7 +116,16 @@ const SellCouponsScreen = () => {
 
           <View style={styles.group}>
             <Text style={[type.label, { color: t.text }]}>Category</Text>
-            <ChipRow options={CATEGORIES} value={category} onChange={setCategory} />
+            <ChipRow
+              options={CATEGORIES}
+              value={category}
+              onChange={(next) => {
+                setCategory(next);
+                setHint("");
+              }}
+            />
+            <Button label="Suggest category" variant="secondary" small onPress={suggest} loading={suggesting} />
+            {hint ? <Text style={[type.caption, { color: t.muted }]}>{hint}</Text> : null}
           </View>
 
           <Field label="Price (INR)" value={value} onChangeText={setValue} keyboardType="decimal-pad" placeholder="250" />

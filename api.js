@@ -82,6 +82,9 @@ export function listCoupons({ category, value } = {}) {
 
 export const listMyCoupons = () => request("/coupons/mine");
 export const createCoupon = (coupon) => request("/coupons", { method: "POST", body: coupon });
+// A category suggestion for the Sell form; the seller confirms or changes it.
+export const suggestCategory = (name, details) =>
+  request("/coupons/suggest", { method: "POST", body: { name, details } });
 export const withdrawCoupon = (id) => request(`/coupons/${id}`, { method: "DELETE" });
 export const buyCoupon = (id) => request(`/coupons/${id}/buy`, { method: "POST" });
 export const listPurchases = () => request("/purchases");

@@ -515,3 +515,20 @@ test("voucher code: a declined or cancelled offer never reveals a code", async (
   assert.equal(declined.body.receivedCode, null);
   codeNeverIn(declined);
 });
+
+test("suggest: needs a login, validates the body and returns a known category", async () => {
+  await request(app).post("/coupons/suggest").send({ name: "Pizza" }).expect(401);
+  await request(app).post("/coupons/suggest").set(auth(seller)).send({}).expect(400);
+  await request(app)
+    .post("/coupons/suggest")
+    .set(auth(seller))
+    .send({ name: "x", details: "y".repeat(501) })
+    .expect(400);
+  const res = await request(app)
+    .post("/coupons/suggest")
+    .set(auth(seller))
+    .send({ name: "Pizza Corner 30% off", details: "Dine-in and delivery" })
+    .expect(200);
+  assert.equal(res.body.category, "Food");
+  assert.equal(typeof res.body.confidence, "number");
+});

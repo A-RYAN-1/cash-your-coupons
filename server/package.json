@@ -11,7 +11,8 @@
     "format": "prettier --write .",
     "format:check": "prettier --check .",
     "migrate": "node migrate.js",
-    "seed": "node seed.js"
+    "seed": "node seed.js",
+    "eval": "node eval.js"
   },
   "dependencies": {
     "bcrypt": "^6.0.0",
