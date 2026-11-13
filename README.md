@@ -82,7 +82,7 @@ in the first two minutes:
 <table>
   <tr>
     <td width="50%"><img src="docs/images/buy.png" alt="Buy screen with coupons grouped by expiry"><p align="center"><sub>Buy: listings sorted by soonest expiry; a tag shows a voucher code is included, never the code (<a href="#how-it-works">how a purchase works</a>)</sub></p></td>
-    <td width="50%"><img src="docs/images/sell.png" alt="Sell form with an optional voucher code field"><p align="center"><sub>Sell: list a coupon, optionally with a voucher code buyers see only after paying (<a href="#features">features</a>)</sub></p></td>
+    <td width="50%"><img src="docs/images/sell.png" alt="Sell form after Suggest category: Online Gaming is selected with a note that it is 79 percent sure"><p align="center"><sub>Sell: Suggest category fills the chip from the name and details and the seller can change it; an optional voucher code is shown to buyers only after they pay (<a href="#features">features</a>)</sub></p></td>
   </tr>
   <tr>
     <td width="50%"><img src="docs/images/exchange.png" alt="Exchange search with one match and an Offer a swap button"><p align="center"><sub>Exchange: find a match and offer a swap (<a href="#features">features</a>)</sub></p></td>
