@@ -33,7 +33,7 @@
   </a>
 </p>
 
-<p align="center"><sub>Last updated: 2026-11-13 &middot; Live on free tiers (Vercel for the web build, Render for the API, Neon for Postgres); also runs in Expo Go</sub></p>
+<p align="center"><sub>Last updated: 2026-11-15 &middot; Live on free tiers (Vercel for the web build, Render for the API, Neon for Postgres); also runs in Expo Go</sub></p>
 
 ---
 
@@ -100,7 +100,7 @@ in the first two minutes:
 
 - **Email and password accounts**: sign up and sign in; passwords are hashed with bcrypt and a signed login token is kept on the device (AsyncStorage), so a reload stays signed in.
 - **Sell**: list a coupon with name, value, details, category and expiry date.
-  - Categories are chips: Food, Clothes, Travel and others. "Suggest category" fills the chip from the name and details (a naive Bayes classifier in the API); the seller can change it, and nothing is saved until the coupon is listed.
+  - Categories are chips: Food, Clothes, Travel and others. "Suggest category" fills the chip from the name and details (a naive Bayes classifier in the API); the seller can change it, and nothing is saved until the coupon is listed. When the coupon is listed the API records whether the seller kept the suggestion or changed it, and `GET /coupons/suggestions/summary` shows the kept rate and the recent changes (names and categories only, never the seller).
   - Expiry is typed as DD-MM-YYYY, with one-tap shortcuts for 1 week, 1 month and 3 months.
   - An optional voucher code (up to 100 characters). Listings show only a "Voucher code included" tag; the code itself is never sent by browse or search.
 - **Buy**: browse other users' listings, sorted by soonest expiry, with search and filters.
@@ -198,12 +198,12 @@ mise.toml           Node version pin
 
 | Area | What is in place |
 |---|---|
-| API tests | 45 tests (`server/test`) on real Postgres: validation, auth, ownership, withdraw, the buy transaction including a race for one coupon, the exchange offers (rules, accept, decline, cancel, cancellation on withdraw or sale, expiry, a race between accept, decline and a purchase) and the voucher code (never in browse, search or a pending offer; revealed to the buyer after the purchase and to each side after an accepted swap); and the category suggestion (route, validation, held-out accuracy floor); pass on 2026-11-13 |
+| API tests | 47 tests (`server/test`) on real Postgres: validation, auth, ownership, withdraw, the buy transaction including a race for one coupon, the exchange offers (rules, accept, decline, cancel, cancellation on withdraw or sale, expiry, a race between accept, decline and a purchase) and the voucher code (never in browse, search or a pending offer; revealed to the buyer after the purchase and to each side after an accepted swap); and the category suggestion (route, validation, held-out accuracy floor); pass on 2026-11-13 |
 | Category suggestion | `cd server && npm run eval` scores two models on 48 held-out coupons the classifier never trains on: the hand-written keyword baseline 41.7%, naive Bayes (trained on 96 labelled coupons) 60.4%, measured 2026-11-13. The test suite fails if the classifier drops below 55% or stops beating the baseline |
 | Lint and format | ESLint (app and API) clean of errors, Prettier clean on the API, 2026-10-18; two hook-dependency warnings remain in the app |
 | Build check | `npm run check` (lint, `expo-doctor`, Android Hermes and web bundles) passed on 2026-10-18 |
 | Browser run | on 2026-10-18 the live site was driven in Chrome (Playwright): a wrong password refused, the Buy list, a purchase (the coupon left the list and showed under Profile), a reload that kept the session, and a seller withdrawing a listing. On 2026-10-23 the same was done for exchange offers on the live site: the demo seller offered a swap, the demo buyer accepted it, and the coupons changed hands |
-| Security | bcrypt passwords, signed expiring tokens, helmet, CORS limited to the web origin, a rate limit on every route and a stricter one on login and register, JSON errors without stack traces, parameterised SQL; `npm audit --omit=dev` found 0 in the API on 2026-10-18 |
+| Security | bcrypt passwords, signed expiring tokens, helmet, CORS limited to the web origin, a rate limit on every route and stricter ones on login, register, listing and the suggestion review, JSON errors without stack traces, parameterised SQL; `npm audit --omit=dev` found 0 in the API on 2026-10-18 |
 | CI | GitHub Actions runs the API job (lint, format, migrate, tests, audit) and the app job (lint, `expo-doctor`, web export) on every push |
 | Monitoring and scanning | an Uptime workflow pings the API `/health` and the app every 30 minutes, CodeQL scans on every push and weekly, and Dependabot opens weekly version-update pull requests (workflows added 2026-10-20) |
 | Not covered | no screen tests, not run on a physical phone |
@@ -306,7 +306,7 @@ compute-hours a month, far above a demo.
 
 **Live check 2026-11-10 (production API, demo accounts):** a listing created with a code returned `hasCode: true` and no code in the buyer's browse response; the purchase returned the code, `GET /purchases` returned it to the buyer, and the seller's purchase list did not contain it. **Not covered by that check:** the exchange reveal was covered by the API tests only, not driven on the live site.
 
-**Reached:** live on free tiers (2026-10-18) on an own API and database; the live site was exercised end to end in a browser (sign in, browse, buy, profile, reload, withdraw); 45 API tests and CI; exchange offers added and checked on the live site 2026-10-23; voucher codes added 2026-11-10; category suggestion added 2026-11-13. **Not reached:** a run on a physical phone.
+**Reached:** live on free tiers (2026-10-18) on an own API and database; the live site was exercised end to end in a browser (sign in, browse, buy, profile, reload, withdraw); 47 API tests and CI; exchange offers added and checked on the live site 2026-10-23; voucher codes added 2026-11-10; category suggestion added 2026-11-13. **Not reached:** a run on a physical phone.
 
 **Known limitations**
 
@@ -314,7 +314,7 @@ compute-hours a month, far above a demo.
 - The voucher code is stored as plain text in the database and shown to the buyer as typed; the app does not check that a code is valid with the brand, so a buyer relies on the seller. There is no dispute or refund flow.
 - Money is not handled: a purchase marks the coupon sold, with no payment.
 - `npm audit` reports high-severity findings in transitive dependencies of Expo for the app (the API is clean); not fixed yet.
-- The category suggestion is small: 96 hand-written training coupons and a 48-coupon test set written by one person, so 60.4% is a measure on that set, not on real listings, and a brand outside its vocabulary falls back to "Others". It suggests a category only; the app has one price field set by the seller, and there is no sales data to learn a price from.
+- The category suggestion is small: 96 hand-written training coupons and a 48-coupon test set written by one person, so 60.4% is a measure on that set, not on real listings, and a brand outside its vocabulary falls back to "Others". It suggests a category only; the app has one price field set by the seller, and there is no sales data to learn a price from. Kept or changed is now logged per listing, but the log starts empty on 2026-11-15, so no accuracy on real listings is claimed yet; the training set is not retrained from it automatically.
 - No screen tests; two lint hook-dependency warnings.
 
 **Planned**
@@ -326,6 +326,7 @@ compute-hours a month, far above a demo.
 - [x] Make Exchange create an exchange offer, accepted or declined by the owner (2026-10-23).
 - [x] A voucher code on a listing, revealed to the buyer only after purchase (2026-11-10).
 - [x] Category suggestion for a listing, measured against a keyword baseline (2026-11-13). Price suggestion dropped: no sales data to learn from.
+- [x] Log whether the seller kept or changed the suggested category, with a rate-limited review endpoint (2026-11-15).
 
 ## Credits
 

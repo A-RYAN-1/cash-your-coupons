@@ -44,6 +44,8 @@ const SellCouponsScreen = () => {
   const [voucherCode, setVoucherCode] = useState("");
   const [busy, setBusy] = useState(false);
   const [suggesting, setSuggesting] = useState(false);
+  // The category the model proposed (only when it had a real clue), sent with the listing.
+  const [suggested, setSuggested] = useState("");
   const [hint, setHint] = useState("");
 
   // Fills the category chip from the name and details; the seller can still pick another.
@@ -56,6 +58,7 @@ const SellCouponsScreen = () => {
     try {
       const result = await suggestCategory(name.trim(), details.trim());
       setCategory(result.category);
+      setSuggested(result.confidence === 0 ? "" : result.category);
       setHint(
         result.confidence === 0
           ? "No clue in the text, so this is a default. Pick the right category."
@@ -92,11 +95,13 @@ const SellCouponsScreen = () => {
         expiryDate: date.toISOString(),
         category,
         voucherCode: voucherCode.trim() || undefined,
+        suggestedCategory: suggested || undefined,
       });
       setName("");
       setValue("");
       setDetails("");
       setCategory("");
+      setSuggested("");
       setHint("");
       setExpiry("");
       setVoucherCode("");

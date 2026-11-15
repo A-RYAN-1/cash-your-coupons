@@ -45,7 +45,7 @@ const toPurchase = (row) => ({
   createdAt: row.created_at,
 });
 
-function createApp({ authLimit = 20, apiLimit = 300 } = {}) {
+function createApp({ authLimit = 20, apiLimit = 300, listingLimit = 30 } = {}) {
   const app = express();
   app.set("trust proxy", 1);
   app.disable("x-powered-by");
@@ -88,6 +88,15 @@ function createApp({ authLimit = 20, apiLimit = 300 } = {}) {
     standardHeaders: true,
     legacyHeaders: false,
     message: { error: "Too many attempts, try again in a few minutes" },
+  });
+
+  // Listing and the suggestion review cost a write or a scan, so they get a tighter ceiling.
+  const listingRateLimit = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    limit: listingLimit,
+    standardHeaders: true,
+    legacyHeaders: false,
+    message: { error: "Too many listings, try again in a few minutes" },
   });
 
   const fail = (res, status, error) => res.status(status).json({ error });
@@ -230,11 +239,18 @@ function createApp({ authLimit = 20, apiLimit = 300 } = {}) {
     }
   });
 
-  app.post("/coupons", authenticate, async (req, res) => {
+  app.post("/coupons", authenticate, listingRateLimit, async (req, res) => {
     const { error, value } = validateCoupon(req.body);
     if (error) return fail(res, 400, error);
+    // Optional: the category the app suggested, so the listing records kept or changed.
+    const suggested = req.body.suggestedCategory;
+    if (suggested !== undefined && !CATEGORIES.includes(suggested)) {
+      return fail(res, 400, "Suggested category is not a known category");
+    }
+    const client = await pool.connect();
     try {
-      const result = await pool.query(
+      await client.query("BEGIN");
+      const result = await client.query(
         `INSERT INTO coupons (seller_id, name, value, details, category, expiry_date, voucher_code)
          VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING ${COUPON_COLUMNS}`,
         [
@@ -247,9 +263,51 @@ function createApp({ authLimit = 20, apiLimit = 300 } = {}) {
           value.voucherCode,
         ]
       );
+      if (suggested) {
+        await client.query(
+          `INSERT INTO suggestion_feedback (coupon_id, seller_id, suggested, chosen)
+           VALUES ($1, $2, $3, $4)`,
+          [result.rows[0].id, req.user.id, suggested, value.category]
+        );
+      }
+      await client.query("COMMIT");
       res.status(201).json(toCoupon(result.rows[0]));
     } catch (err) {
+      await client.query("ROLLBACK").catch(() => {});
       return serverError(req, res, err, "create coupon failed");
+    } finally {
+      client.release();
+    }
+  });
+
+  // Review of the suggestion on real listings: how often sellers kept it, and the changes.
+  // Only categories and listing names are returned, never who the seller is.
+  app.get("/coupons/suggestions/summary", authenticate, listingRateLimit, async (req, res) => {
+    try {
+      const totals = await pool.query(
+        `SELECT count(*)::int AS total, count(*) FILTER (WHERE suggested = chosen)::int AS kept
+         FROM suggestion_feedback`
+      );
+      const changed = await pool.query(
+        `SELECT c.name, f.suggested, f.chosen, f.created_at
+         FROM suggestion_feedback f JOIN coupons c ON c.id = f.coupon_id
+         WHERE f.suggested <> f.chosen ORDER BY f.created_at DESC LIMIT 50`
+      );
+      const { total, kept } = totals.rows[0];
+      res.json({
+        total,
+        kept,
+        changed: total - kept,
+        keptRate: total === 0 ? null : kept / total,
+        recentChanges: changed.rows.map((row) => ({
+          name: row.name,
+          suggested: row.suggested,
+          chosen: row.chosen,
+          createdAt: row.created_at,
+        })),
+      });
+    } catch (err) {
+      return serverError(req, res, err, "suggestion summary failed");
     }
   });
 
