@@ -95,3 +95,5 @@ export const offerExchange = (offeredCouponId, requestedCouponId) =>
 export const acceptExchange = (id) => request(`/exchanges/${id}/accept`, { method: "POST" });
 export const declineExchange = (id) => request(`/exchanges/${id}/decline`, { method: "POST" });
 export const cancelExchange = (id) => request(`/exchanges/${id}/cancel`, { method: "POST" });
+// How often sellers kept the suggested category on real listings, with the recent changes.
+export const suggestionSummary = () => request("/coupons/suggestions/summary");

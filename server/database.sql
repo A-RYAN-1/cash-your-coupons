@@ -70,3 +70,13 @@ CREATE UNIQUE INDEX IF NOT EXISTS exchanges_pending_pair_idx
   ON exchanges (offered_coupon_id, requested_coupon_id) WHERE status = 'pending';
 CREATE INDEX IF NOT EXISTS exchanges_offerer_idx ON exchanges (offerer_id);
 CREATE INDEX IF NOT EXISTS exchanges_owner_idx ON exchanges (owner_id);
+
+-- What the seller did with the category suggestion: kept it or changed it. One row per listing,
+-- written with the listing, so the rows are a labelled set grown from real use.
+CREATE TABLE IF NOT EXISTS suggestion_feedback (
+  coupon_id  UUID PRIMARY KEY REFERENCES coupons(id),
+  seller_id  UUID NOT NULL REFERENCES users(id),
+  suggested  TEXT NOT NULL,
+  chosen     TEXT NOT NULL,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);

@@ -11,7 +11,7 @@ process.env.DATABASE_URL =
 const { createApp } = require("../app");
 const pool = require("../db");
 
-const app = createApp({ authLimit: 1000 });
+const app = createApp({ authLimit: 1000, listingLimit: 1000 });
 const suffix = Date.now().toString(36);
 const emails = ["seller", "buyer", "other"].map((n) => `${n}-${suffix}@example.com`);
 const PASSWORD = "correct-horse-1";
@@ -52,6 +52,7 @@ test.after(async () => {
   await pool.query(`DELETE FROM purchases WHERE buyer_id IN ${users} OR seller_id IN ${users}`, [
     emails,
   ]);
+  await pool.query(`DELETE FROM suggestion_feedback WHERE seller_id IN ${users}`, [emails]);
   await pool.query(`DELETE FROM coupons WHERE seller_id IN ${users}`, [emails]);
   await pool.query("DELETE FROM users WHERE email = ANY($1)", [emails]);
   await pool.end();
@@ -531,4 +532,36 @@ test("suggest: needs a login, validates the body and returns a known category", 
     .expect(200);
   assert.equal(res.body.category, "Food");
   assert.equal(typeof res.body.confidence, "number");
+});
+
+test("suggestion feedback: kept and changed listings are recorded and summarised", async () => {
+  await create(seller, listing({ suggestedCategory: "Food" })).expect(201);
+  await create(
+    seller,
+    listing({ name: "Gym month pass", category: "Travel", suggestedCategory: "Health & Wellness" })
+  ).expect(201);
+  await create(seller, listing()).expect(201);
+  const bad = await create(seller, listing({ suggestedCategory: "Nonsense" }));
+  assert.equal(bad.status, 400);
+  const mark = await pool.query(
+    "SELECT count(*)::int AS n FROM suggestion_feedback WHERE seller_id = (SELECT id FROM users WHERE email = $1)",
+    [emails[0]]
+  );
+  assert.equal(mark.rows[0].n, 2);
+  const res = await request(app).get("/coupons/suggestions/summary").set(auth(buyer)).expect(200);
+  assert.ok(res.body.total >= 2 && res.body.kept >= 1 && res.body.changed >= 1);
+  assert.equal(res.body.kept + res.body.changed, res.body.total);
+  const change = res.body.recentChanges.find((c) => c.name === "Gym month pass");
+  assert.deepEqual([change.suggested, change.chosen], ["Health & Wellness", "Travel"]);
+  assert.equal(change.sellerId, undefined);
+  await request(app).get("/coupons/suggestions/summary").expect(401);
+});
+
+test("listing is rate limited per client", async () => {
+  const limited = createApp({ authLimit: 1000, listingLimit: 2 });
+  const token = seller;
+  const post = () => request(limited).post("/coupons").set(auth(token)).send(listing());
+  await post().expect(201);
+  await post().expect(201);
+  await post().expect(429);
 });
