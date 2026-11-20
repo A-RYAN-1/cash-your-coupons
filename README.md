@@ -33,7 +33,7 @@
   </a>
 </p>
 
-<p align="center"><sub>Last updated: 2026-11-20 &middot; Live on free tiers (Vercel for the web build, Render for the API, Neon for Postgres); also runs in Expo Go</sub></p>
+<p align="center"><sub>Last updated: 2026-11-21 &middot; Live on free tiers (Vercel for the web build, Render for the API, Neon for Postgres); also runs in Expo Go</sub></p>
 
 ---
 
@@ -312,7 +312,7 @@ compute-hours a month, far above a demo.
 
 **Known limitations**
 
-- The login token is kept in app storage, not an httpOnly cookie, and there is no email check at sign-up. A password reset does not end logins already issued (they last 7 days). The reset mail is sent through Brevo only when `BREVO_API_KEY` and `MAIL_FROM` are set; the live API had no key on 2026-11-20, so no reset mail has been delivered yet, and the code path was checked by 6 API tests and by the live screen refusing a wrong code.
+- The login token is kept in app storage, not an httpOnly cookie, and there is no email check at sign-up. A password reset does not end logins already issued (they last 7 days). The reset mail is sent through Brevo only when `BREVO_API_KEY` and `MAIL_FROM` are set; on 2026-11-21 the live API sent a reset mail to a Gmail inbox and the code changed a password once (a second use was refused). The sender is a gmail.com address, which Brevo flags for DKIM and DMARC, so delivery to other providers is untested and may land in spam.
 - The voucher code is stored as plain text in the database and shown to the buyer as typed; the app does not check that a code is valid with the brand, so a buyer relies on the seller. There is no dispute or refund flow.
 - Money is not handled: a purchase marks the coupon sold, with no payment.
 - `npm audit` reports high-severity findings in transitive dependencies of Expo for the app (the API is clean); not fixed yet.
