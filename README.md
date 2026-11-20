@@ -272,6 +272,8 @@ SDK is needed. When Expo Go moves on to a newer SDK, upgrade with `npx expo inst
 | `PORT` | port to listen on, default 5000 (Render sets it) | optional |
 | `CORS_ORIGINS` | comma-separated web origins allowed to call the API | when a browser app is hosted elsewhere |
 | `DATABASE_SSL` | `true` for a database that needs TLS (Neon) | hosted |
+| `BREVO_API_KEY` | key of a free Brevo account; sends the password reset code | to send mail |
+| `MAIL_FROM` | sender address verified in Brevo | to send mail |
 
 The app's address is public (the browser calls it). The API's secrets stay in its host's
 environment. Never commit a real `.env`; only the `.env.example` files are tracked.

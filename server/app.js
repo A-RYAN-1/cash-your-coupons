@@ -6,7 +6,7 @@ const rateLimit = require("express-rate-limit");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
 const pool = require("./db");
-const { JWT_SECRET, JWT_EXPIRES_IN, CORS_ORIGINS } = require("./config");
+const { JWT_SECRET, JWT_EXPIRES_IN, CORS_ORIGINS, BREVO_API_KEY, MAIL_FROM } = require("./config");
 const {
   CATEGORIES,
   validateCredentials,
@@ -17,6 +17,8 @@ const {
 const logger = require("./logger");
 const { suggest } = require("./suggest");
 const { registerExchangeRoutes, cancelOffersOn } = require("./exchanges");
+const { registerRecoveryRoutes } = require("./recovery");
+const { createMailer } = require("./mailer");
 
 // The code itself is never selected for a listing other people can see, only whether one exists.
 const COUPON_COLUMNS =
@@ -45,7 +47,12 @@ const toPurchase = (row) => ({
   createdAt: row.created_at,
 });
 
-function createApp({ authLimit = 20, apiLimit = 300, listingLimit = 30 } = {}) {
+function createApp({
+  authLimit = 20,
+  apiLimit = 300,
+  listingLimit = 30,
+  mailer = createMailer({ apiKey: BREVO_API_KEY, senderEmail: MAIL_FROM }),
+} = {}) {
   const app = express();
   app.set("trust proxy", 1);
   app.disable("x-powered-by");
@@ -406,6 +413,7 @@ function createApp({ authLimit = 20, apiLimit = 300, listingLimit = 30 } = {}) {
   });
 
   registerExchangeRoutes(app, { authenticate, fail, serverError });
+  registerRecoveryRoutes(app, { mailer, authRateLimit, fail, serverError });
 
   app.use((req, res) => fail(res, 404, "Not found"));
 

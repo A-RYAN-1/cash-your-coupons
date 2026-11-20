@@ -68,6 +68,12 @@ export async function register(email, password) {
 
 export const logout = () => setToken(null);
 
+// Password recovery: a code is mailed, then traded for a new password. Neither signs in.
+export const requestResetCode = (email) =>
+  request("/auth/forgot", { method: "POST", body: { email } });
+export const resetPassword = (email, code, password) =>
+  request("/auth/reset", { method: "POST", body: { email, code, password } });
+
 export const getProfile = () => request("/me");
 export const saveProfile = (profile) => request("/me", { method: "PUT", body: profile });
 
