@@ -33,7 +33,7 @@
   </a>
 </p>
 
-<p align="center"><sub>Last updated: 2026-11-15 &middot; Live on free tiers (Vercel for the web build, Render for the API, Neon for Postgres); also runs in Expo Go</sub></p>
+<p align="center"><sub>Last updated: 2026-11-20 &middot; Live on free tiers (Vercel for the web build, Render for the API, Neon for Postgres); also runs in Expo Go</sub></p>
 
 ---
 
@@ -90,7 +90,7 @@ in the first two minutes:
   </tr>
   <tr>
     <td width="50%"><img src="docs/images/offers.png" alt="Profile, Offers tab: a pending offer of one coupon for another with Decline and Accept buttons"><p align="center"><sub>Offers: the owner accepts or declines a swap (<a href="#features">features</a>)</sub></p></td>
-    <td width="50%"></td>
+    <td width="50%"><img src="docs/images/reset.png" alt="Reset your password: email, the code from the email and a new password"><p align="center"><sub>Reset: a forgotten password is changed with a code mailed to the account (<a href="#features">features</a>)</sub></p></td>
   </tr>
 </table>
 
@@ -98,7 +98,7 @@ in the first two minutes:
 
 ## Features
 
-- **Email and password accounts**: sign up and sign in; passwords are hashed with bcrypt and a signed login token is kept on the device (AsyncStorage), so a reload stays signed in.
+- **Email and password accounts**: sign up and sign in; passwords are hashed with bcrypt and a signed login token is kept on the device (AsyncStorage), so a reload stays signed in. **Forgot your password** mails an 8-character code (30 minutes, one use, locked after 5 wrong guesses, 3 mails an hour per account) that sets a new password.
 - **Sell**: list a coupon with name, value, details, category and expiry date.
   - Categories are chips: Food, Clothes, Travel and others. "Suggest category" fills the chip from the name and details (a naive Bayes classifier in the API); the seller can change it, and nothing is saved until the coupon is listed. When the coupon is listed the API records whether the seller kept the suggestion or changed it, and `GET /coupons/suggestions/summary` shows the kept rate and the recent changes (names and categories only, never the seller).
   - Expiry is typed as DD-MM-YYYY, with one-tap shortcuts for 1 week, 1 month and 3 months.
@@ -312,7 +312,7 @@ compute-hours a month, far above a demo.
 
 **Known limitations**
 
-- The login token is kept in app storage, not an httpOnly cookie, and there is no password reset or email check.
+- The login token is kept in app storage, not an httpOnly cookie, and there is no email check at sign-up. A password reset does not end logins already issued (they last 7 days). The reset mail is sent through Brevo only when `BREVO_API_KEY` and `MAIL_FROM` are set; the live API had no key on 2026-11-20, so no reset mail has been delivered yet, and the code path was checked by 6 API tests and by the live screen refusing a wrong code.
 - The voucher code is stored as plain text in the database and shown to the buyer as typed; the app does not check that a code is valid with the brand, so a buyer relies on the seller. There is no dispute or refund flow.
 - Money is not handled: a purchase marks the coupon sold, with no payment.
 - `npm audit` reports high-severity findings in transitive dependencies of Expo for the app (the API is clean); not fixed yet.
@@ -329,6 +329,8 @@ compute-hours a month, far above a demo.
 - [x] A voucher code on a listing, revealed to the buyer only after purchase (2026-11-10).
 - [x] Category suggestion for a listing, measured against a keyword baseline (2026-11-13). Price suggestion dropped: no sales data to learn from.
 - [x] Log whether the seller kept or changed the suggested category, with a rate-limited review endpoint (2026-11-15).
+- [x] Password reset by an emailed code (2026-11-20).
+- [ ] An httpOnly session cookie for the web build through a same-origin proxy, and ending sessions on reset.
 
 ## Credits
 
