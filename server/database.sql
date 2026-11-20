@@ -80,3 +80,16 @@ CREATE TABLE IF NOT EXISTS suggestion_feedback (
   chosen     TEXT NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT now()
 );
+
+-- Password recovery: a short code mailed to the account email. Only its hash is stored, it
+-- expires, and it locks after a few wrong guesses.
+CREATE TABLE IF NOT EXISTS password_resets (
+  id         UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  user_id    UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  code_hash  TEXT NOT NULL,
+  attempts   INT NOT NULL DEFAULT 0,
+  expires_at TIMESTAMPTZ NOT NULL,
+  used_at    TIMESTAMPTZ,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS password_resets_user_idx ON password_resets (user_id, created_at);

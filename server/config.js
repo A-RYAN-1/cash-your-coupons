@@ -24,4 +24,7 @@ module.exports = {
     .map((origin) => origin.trim())
     .filter(Boolean),
   DATABASE_SSL: process.env.DATABASE_SSL === "true",
+  // Recovery mail (Brevo). Both unset: no mail is sent, the API still answers.
+  BREVO_API_KEY: process.env.BREVO_API_KEY || "",
+  MAIL_FROM: process.env.MAIL_FROM || "",
 };

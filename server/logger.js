@@ -5,5 +5,6 @@ const write = (level, message, fields) =>
 
 module.exports = {
   info: (message, fields) => write("info", message, fields),
+  warn: (message, fields) => write("warn", message, fields),
   error: (message, fields) => write("error", message, fields),
 };
