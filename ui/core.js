@@ -14,8 +14,19 @@ import {
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
 import { subscribe } from "../notify";
-import { MAX_WIDTH, TAB_BAR, TARGET, elevation, motion, radius, space, type, useTheme } from "../theme";
+import {
+  MAX_WIDTH,
+  TAB_BAR,
+  TARGET,
+  elevation,
+  motion,
+  radius,
+  space,
+  type,
+  useTheme,
+} from "../theme";
 import { Icon } from "./Icon";
+import { Tile } from "./Tile";
 import { useNativeDriver, usePressScale, useReduceMotion } from "./motion";
 import { useStyles } from "./useStyles";
 
@@ -58,7 +69,11 @@ export function Screen({ title, subtitle, action, children }) {
 export function Page({ children, ...props }) {
   return (
     <ScrollView
-      contentContainerStyle={{ padding: space.md, paddingBottom: space.xl, gap: space.md }}
+      contentContainerStyle={{
+        padding: space.md,
+        paddingBottom: space.xl,
+        gap: space.md,
+      }}
       keyboardShouldPersistTaps="handled"
       {...props}
     >
@@ -94,22 +109,51 @@ const buttonStyles = (t) => ({
 });
 
 // `icon` is an Ionicons name shown before the label. A small button keeps a 44 point touch area through hitSlop.
-export function Button({ label, onPress, variant = "primary", small, loading, disabled, icon, style }) {
+export function Button({
+  label,
+  onPress,
+  variant = "primary",
+  small,
+  loading,
+  disabled,
+  icon,
+  style,
+}) {
   const s = useStyles(buttonStyles);
   const t = useTheme();
   const press = usePressScale();
   const inactive = disabled || loading;
-  const tone = variant === "primary" ? t.accentText : variant === "danger" ? t.danger : t.text;
+  const tone =
+    variant === "primary"
+      ? t.accentText
+      : variant === "danger"
+        ? t.danger
+        : t.text;
   return (
     <AnimatedPressable
       accessibilityRole="button"
-      accessibilityState={{ disabled: Boolean(inactive), busy: Boolean(loading) }}
+      accessibilityState={{
+        disabled: Boolean(inactive),
+        busy: Boolean(loading),
+      }}
       onPress={inactive ? undefined : onPress}
       hitSlop={small ? space.xs : 0}
       {...(inactive ? {} : press.handlers)}
-      style={[s.base, s[variant], small && s.small, inactive && s.disabled, !inactive && press.style, style]}
+      style={[
+        s.base,
+        s[variant],
+        small && s.small,
+        inactive && s.disabled,
+        !inactive && press.style,
+        style,
+      ]}
     >
-      {loading ? <ActivityIndicator size="small" color={variant === "primary" ? t.accentText : t.muted} /> : null}
+      {loading ? (
+        <ActivityIndicator
+          size="small"
+          color={variant === "primary" ? t.accentText : t.muted}
+        />
+      ) : null}
       {icon && !loading ? <Icon name={icon} size="sm" color={tone} /> : null}
       <Text style={[s.label, s[`${variant}Label`]]}>{label}</Text>
     </AnimatedPressable>
@@ -185,14 +229,24 @@ export function ChipRow({ options, value, onChange, scroll, icons = {} }) {
         hitSlop={space.xs}
         style={[s.chip, selected && s.selected]}
       >
-        {icons[option] ? <Icon name={icons[option]} size="sm" tone={selected ? "accent" : "muted"} /> : null}
+        {icons[option] ? (
+          <Icon
+            name={icons[option]}
+            size="sm"
+            tone={selected ? "accent" : "muted"}
+          />
+        ) : null}
         <Text style={[s.label, selected && s.selectedLabel]}>{option}</Text>
       </Pressable>
     );
   });
   if (scroll) {
     return (
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[s.row, s.nowrap]}>
+      <ScrollView
+        horizontal
+        showsHorizontalScrollIndicator={false}
+        contentContainerStyle={[s.row, s.nowrap]}
+      >
         {chips}
       </ScrollView>
     );
@@ -219,7 +273,13 @@ export function Card({ children, style }) {
 }
 
 const pillStyles = (t) => ({
-  pill: { alignSelf: "flex-start", paddingHorizontal: space.sm, paddingVertical: space.xxs, borderRadius: radius.pill, backgroundColor: t.surfaceAlt },
+  pill: {
+    alignSelf: "flex-start",
+    paddingHorizontal: space.sm,
+    paddingVertical: space.xxs,
+    borderRadius: radius.pill,
+    backgroundColor: t.surfaceAlt,
+  },
   warn: { backgroundColor: t.warningSoft },
   bad: { backgroundColor: t.dangerSoft },
   label: { ...type.micro, color: t.muted },
@@ -253,21 +313,43 @@ export function expiryInfo(expiryDate) {
 export const rupees = (value) => `₹${Number(value).toLocaleString("en-IN")}`;
 
 const couponStyles = (t) => ({
-  top: { flexDirection: "row", justifyContent: "space-between", alignItems: "flex-start", gap: space.md },
-  name: { ...type.heading, color: t.text, flexShrink: 1 },
-  value: { ...type.heading, color: t.accent, fontVariant: ["tabular-nums"] },
+  top: { flexDirection: "row", alignItems: "center", gap: space.md },
+  heading: { flex: 1, gap: space.xxs },
+  name: { ...type.heading, color: t.text },
+  category: { ...type.caption, color: t.muted },
+  value: { ...type.title, color: t.accent, fontVariant: ["tabular-nums"] },
   details: { ...type.body, color: t.muted },
-  footer: { flexDirection: "row", alignItems: "center", justifyContent: "space-between", gap: space.md, marginTop: space.xs },
-  tags: { flexDirection: "row", flexWrap: "wrap", gap: space.sm, flexShrink: 1 },
+  footer: {
+    flexDirection: "row",
+    alignItems: "center",
+    justifyContent: "space-between",
+    gap: space.md,
+    marginTop: space.xs,
+  },
+  tags: {
+    flexDirection: "row",
+    flexWrap: "wrap",
+    gap: space.sm,
+    flexShrink: 1,
+  },
 });
 
 const codeStyles = (t) => ({
-  box: { gap: space.xxs, padding: space.sm + 2, borderRadius: radius.md, backgroundColor: t.surfaceAlt },
+  box: {
+    gap: space.xxs,
+    padding: space.sm + 2,
+    borderRadius: radius.md,
+    backgroundColor: t.surfaceAlt,
+  },
   label: { ...type.caption, color: t.muted },
   code: {
     ...type.heading,
     color: t.text,
-    fontFamily: Platform.select({ ios: "Menlo", android: "monospace", default: "ui-monospace, Menlo, Consolas, monospace" }),
+    fontFamily: Platform.select({
+      ios: "Menlo",
+      android: "monospace",
+      default: "ui-monospace, Menlo, Consolas, monospace",
+    }),
     letterSpacing: 0.5,
   },
 });
@@ -285,13 +367,20 @@ export function CodeBox({ label, code }) {
   );
 }
 
+// Brand tile, name and category on the left, face value on the right, expiry badge and action below (pattern B2).
 export function CouponCard({ coupon, action, code }) {
   const s = useStyles(couponStyles);
   const expiry = expiryInfo(coupon.expiryDate);
   return (
     <Card>
       <View style={s.top}>
-        <Text style={s.name}>{coupon.name}</Text>
+        <Tile name={coupon.name} />
+        <View style={s.heading}>
+          <Text style={s.name}>{coupon.name}</Text>
+          {coupon.category ? (
+            <Text style={s.category}>{coupon.category}</Text>
+          ) : null}
+        </View>
         <Text style={s.value}>{rupees(coupon.value)}</Text>
       </View>
       {coupon.details ? (
@@ -301,7 +390,6 @@ export function CouponCard({ coupon, action, code }) {
       ) : null}
       <View style={s.footer}>
         <View style={s.tags}>
-          {coupon.category ? <Pill label={coupon.category} /> : null}
           <Pill label={expiry.label} tone={expiry.tone} />
           {coupon.hasCode ? <Pill label="Voucher code included" /> : null}
         </View>
@@ -313,7 +401,12 @@ export function CouponCard({ coupon, action, code }) {
 }
 
 const emptyStyles = (t) => ({
-  wrap: { alignItems: "center", paddingVertical: space.xl, paddingHorizontal: space.lg, gap: space.xs + 2 },
+  wrap: {
+    alignItems: "center",
+    paddingVertical: space.xl,
+    paddingHorizontal: space.lg,
+    gap: space.xs + 2,
+  },
   badge: {
     width: 56,
     height: 56,
@@ -330,7 +423,12 @@ const emptyStyles = (t) => ({
 });
 
 // Nothing to show yet. `icon` is an Ionicons name.
-export function EmptyState({ title, text, icon = "file-tray-outline", children }) {
+export function EmptyState({
+  title,
+  text,
+  icon = "file-tray-outline",
+  children,
+}) {
   const s = useStyles(emptyStyles);
   return (
     <View style={s.wrap}>
@@ -356,7 +454,12 @@ export function ErrorState({ title = "Something went wrong", text, onRetry }) {
       {text ? <Text style={s.text}>{text}</Text> : null}
       {onRetry ? (
         <View style={s.action}>
-          <Button label="Try again" variant="secondary" icon="refresh" onPress={onRetry} />
+          <Button
+            label="Try again"
+            variant="secondary"
+            icon="refresh"
+            onPress={onRetry}
+          />
         </View>
       ) : null}
     </View>
@@ -373,8 +476,18 @@ export function Loading() {
 }
 
 const segmentStyles = (t) => ({
-  wrap: { flexDirection: "row", backgroundColor: t.surfaceAlt, borderRadius: radius.md, padding: space.xs - 1 },
-  item: { flex: 1, alignItems: "center", paddingVertical: space.sm, borderRadius: radius.md - 3 },
+  wrap: {
+    flexDirection: "row",
+    backgroundColor: t.surfaceAlt,
+    borderRadius: radius.md,
+    padding: space.xs - 1,
+  },
+  item: {
+    flex: 1,
+    alignItems: "center",
+    paddingVertical: space.sm,
+    borderRadius: radius.md - 3,
+  },
   selected: { backgroundColor: t.surface },
   label: { ...type.label, color: t.muted },
   selectedLabel: { color: t.text },
@@ -394,7 +507,9 @@ export function Segmented({ options, value, onChange }) {
             onPress={() => onChange(option.value)}
             style={[s.item, selected && s.selected]}
           >
-            <Text style={[s.label, selected && s.selectedLabel]}>{option.label}</Text>
+            <Text style={[s.label, selected && s.selectedLabel]}>
+              {option.label}
+            </Text>
           </Pressable>
         );
       })}
@@ -403,24 +518,52 @@ export function Segmented({ options, value, onChange }) {
 }
 
 const dialogStyles = (t) => ({
-  scrim: { flex: 1, backgroundColor: t.scrim, justifyContent: "center", alignItems: "center", padding: space.md },
-  box: { width: "100%", maxWidth: 440, maxHeight: "90%", backgroundColor: t.surface, borderRadius: radius.lg, padding: space.lg, gap: space.md },
+  scrim: {
+    flex: 1,
+    backgroundColor: t.scrim,
+    justifyContent: "center",
+    alignItems: "center",
+    padding: space.md,
+  },
+  box: {
+    width: "100%",
+    maxWidth: 440,
+    maxHeight: "90%",
+    backgroundColor: t.surface,
+    borderRadius: radius.lg,
+    padding: space.lg,
+    gap: space.md,
+  },
   title: { ...type.heading, color: t.text },
   message: { ...type.body, color: t.muted },
   actions: { flexDirection: "row", justifyContent: "flex-end", gap: space.sm },
 });
 
-export function Dialog({ visible, title, message, onClose, children, actions }) {
+export function Dialog({
+  visible,
+  title,
+  message,
+  onClose,
+  children,
+  actions,
+}) {
   const s = useStyles(dialogStyles);
   return (
-    <Modal visible={visible} transparent animationType="fade" onRequestClose={onClose}>
+    <Modal
+      visible={visible}
+      transparent
+      animationType="fade"
+      onRequestClose={onClose}
+    >
       <View style={s.scrim}>
         <View style={s.box} accessibilityViewIsModal>
           <Text style={s.title} accessibilityRole="header">
             {title}
           </Text>
           {message ? <Text style={s.message}>{message}</Text> : null}
-          {children ? <ScrollView style={{ flexShrink: 1 }}>{children}</ScrollView> : null}
+          {children ? (
+            <ScrollView style={{ flexShrink: 1 }}>{children}</ScrollView>
+          ) : null}
           <View style={s.actions}>{actions}</View>
         </View>
       </View>
@@ -463,20 +606,39 @@ function Toast({ toast, onDismiss }) {
   useEffect(() => {
     if (reduce) return;
     enter.setValue(0);
-    Animated.timing(enter, { toValue: 1, duration: motion.fade, useNativeDriver }).start();
+    Animated.timing(enter, {
+      toValue: 1,
+      duration: motion.fade,
+      useNativeDriver,
+    }).start();
   }, [toast, reduce, enter]);
 
-  const rise = enter.interpolate({ inputRange: [0, 1], outputRange: [space.md, 0] });
+  const rise = enter.interpolate({
+    inputRange: [0, 1],
+    outputRange: [space.md, 0],
+  });
   const failed = toast.kind === "error";
   return (
     <Animated.View
       accessibilityRole="alert"
       accessibilityLiveRegion="polite"
-      style={[s.toast, s[toast.kind], { opacity: enter, transform: [{ translateY: rise }] }]}
+      style={[
+        s.toast,
+        s[toast.kind],
+        { opacity: enter, transform: [{ translateY: rise }] },
+      ]}
     >
-      <Icon name={failed ? "alert-circle" : "checkmark-circle"} tone={failed ? "danger" : "accent"} />
+      <Icon
+        name={failed ? "alert-circle" : "checkmark-circle"}
+        tone={failed ? "danger" : "accent"}
+      />
       <Text style={s.text}>{toast.message}</Text>
-      <Pressable accessibilityRole="button" accessibilityLabel="Dismiss message" onPress={onDismiss} style={s.cover} />
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Dismiss message"
+        onPress={onDismiss}
+        style={s.cover}
+      />
     </Animated.View>
   );
 }
@@ -492,7 +654,7 @@ export function ToastHost() {
         if (event.type === "toast") setToast(event);
         else setConfirm(event);
       }),
-    []
+    [],
   );
 
   useEffect(() => {
@@ -516,8 +678,16 @@ export function ToastHost() {
         onClose={() => answer(false)}
         actions={
           <>
-            <Button label="Cancel" variant="secondary" onPress={() => answer(false)} />
-            <Button label={confirm?.confirmLabel || "Confirm"} variant="danger" onPress={() => answer(true)} />
+            <Button
+              label="Cancel"
+              variant="secondary"
+              onPress={() => answer(false)}
+            />
+            <Button
+              label={confirm?.confirmLabel || "Confirm"}
+              variant="danger"
+              onPress={() => answer(true)}
+            />
           </>
         }
       />

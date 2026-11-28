@@ -6,3 +6,4 @@ export { Stepper } from "./Stepper";
 export { Skeleton, CouponCardSkeleton, ListSkeleton } from "./Skeleton";
 export { useReduceMotion } from "./motion";
 export { HomeBar, CategoryTiles, Rail, MiniCoupon, HomeSkeleton } from "./Home";
+export { FilterBar, FilterSheet } from "./FilterSheet";

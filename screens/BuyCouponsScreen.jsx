@@ -12,7 +12,8 @@ import { showError, showSuccess } from "../notify";
 import {
   Button,
   CategoryTiles,
-  ChipRow,
+  FilterBar,
+  FilterSheet,
   CouponCard,
   Dialog,
   EmptyState,
@@ -30,6 +31,21 @@ import { CATEGORIES } from "./SellCouponsScreen";
 const DAY = 24 * 60 * 60 * 1000;
 
 const FILTERS = ["All", "Today", "This week", "This month", "Later"];
+const SORTS = ["Soonest expiry", "Highest value", "Lowest value", "Newest"];
+
+const sectionLabel = (title) => {
+  if (SORTS.includes(title)) return `Sorted by ${title.toLowerCase()}`;
+  if (title === "Today") return "Expiring today";
+  if (title === "Later") return "More than a month left";
+  return `Expiring ${title.toLowerCase()}`;
+};
+
+const SORTERS = {
+  "Soonest expiry": (a, b) => new Date(a.expiryDate) - new Date(b.expiryDate),
+  "Highest value": (a, b) => b.value - a.value,
+  "Lowest value": (a, b) => a.value - b.value,
+  Newest: (a, b) => new Date(b.createdAt ?? 0) - new Date(a.createdAt ?? 0),
+};
 
 // The server sends other people's unexpired listings, soonest expiry first.
 const bucket = (expiryDate) => {
@@ -47,6 +63,8 @@ const BuyCouponsScreen = () => {
   const [buying, setBuying] = useState(null);
   const [query, setQuery] = useState("");
   const [filter, setFilter] = useState("All");
+  const [sort, setSort] = useState(SORTS[0]);
+  const [sheet, setSheet] = useState(false);
   const [category, setCategory] = useState("");
   const [failed, setFailed] = useState(false);
   const [confirming, setConfirming] = useState(null);
@@ -89,23 +107,36 @@ const BuyCouponsScreen = () => {
     }
   };
 
+  const matchFor = useCallback(
+    (window) => {
+      const needle = query.trim().toLowerCase();
+      return (coupons ?? []).filter(
+        (c) =>
+          (!needle || c.name.toLowerCase().includes(needle)) &&
+          (!category || c.category === category) &&
+          (window === "All" || bucket(c.expiryDate) === window),
+      );
+    },
+    [coupons, query, category],
+  );
+
   const sections = useMemo(() => {
-    const needle = query.trim().toLowerCase();
-    const matching = (coupons ?? []).filter(
-      (c) =>
-        (!needle || c.name.toLowerCase().includes(needle)) &&
-        (!category || c.category === category),
-    );
+    const matching = matchFor(filter);
+    if (sort !== SORTS[0]) {
+      return matching.length > 0
+        ? [{ title: sort, data: [...matching].sort(SORTERS[sort]) }]
+        : [];
+    }
     return FILTERS.slice(1)
-      .filter((name) => filter === "All" || filter === name)
       .map((title) => ({
         title,
         data: matching.filter((c) => bucket(c.expiryDate) === title),
       }))
       .filter((section) => section.data.length > 0);
-  }, [coupons, query, filter, category]);
+  }, [matchFor, filter, sort]);
 
-  const browsing = !query.trim() && !category && filter === "All";
+  const browsing =
+    !query.trim() && !category && filter === "All" && sort === SORTS[0];
   const rails = useMemo(() => {
     const list = coupons ?? [];
     const soon = list.filter(
@@ -163,16 +194,14 @@ const BuyCouponsScreen = () => {
         </>
       ) : null}
       <View style={styles.filters}>
-        <Text style={[type.heading, { color: t.text, marginTop: space.md }]}>
-          {browsing
-            ? "All coupons"
-            : `${count} ${count === 1 ? "result" : "results"}`}
-        </Text>
-        <ChipRow
-          options={FILTERS}
-          value={filter}
-          onChange={(v) => setFilter(v || "All")}
-          scroll
+        <FilterBar
+          title={
+            browsing
+              ? "All coupons"
+              : `${count} ${count === 1 ? "result" : "results"}`
+          }
+          active={(filter !== "All" ? 1 : 0) + (sort !== SORTS[0] ? 1 : 0)}
+          onOpen={() => setSheet(true)}
         />
       </View>
     </View>
@@ -210,11 +239,7 @@ const BuyCouponsScreen = () => {
                 { color: t.muted },
               ]}
             >
-              {section.title === "Today"
-                ? "Expiring today"
-                : section.title === "Later"
-                  ? "More than a month left"
-                  : `Expiring ${section.title.toLowerCase()}`}
+              {sectionLabel(section.title)}
             </Text>
           )}
           renderItem={({ item }) => (
@@ -257,6 +282,18 @@ const BuyCouponsScreen = () => {
               />
             )
           }
+        />
+        <FilterSheet
+          visible={sheet}
+          onClose={() => setSheet(false)}
+          windows={FILTERS}
+          sorts={SORTS}
+          value={{ window: filter, sort }}
+          onApply={(v) => {
+            setFilter(v.window);
+            setSort(v.sort);
+          }}
+          countFor={(v) => matchFor(v.window).length}
         />
         <Dialog
           visible={confirming !== null}
