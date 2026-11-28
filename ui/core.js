@@ -1,25 +1,23 @@
 /* global setTimeout, clearTimeout */
 // Shared building blocks. Screens compose these and hold no colours or sizes of their own.
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   ActivityIndicator,
+  Animated,
   Modal,
   Platform,
   Pressable,
   ScrollView,
-  StyleSheet,
   Text,
   TextInput,
   View,
 } from "react-native";
 import { SafeAreaView } from "react-native-safe-area-context";
-import { subscribe } from "./notify";
-import { MAX_WIDTH, radius, space, type, useTheme } from "./theme";
-
-const useStyles = (make) => {
-  const theme = useTheme();
-  return useMemo(() => StyleSheet.create(make(theme)), [make, theme]);
-};
+import { subscribe } from "../notify";
+import { MAX_WIDTH, TAB_BAR, TARGET, elevation, motion, radius, space, type, useTheme } from "../theme";
+import { Icon } from "./Icon";
+import { useNativeDriver, usePressScale, useReduceMotion } from "./motion";
+import { useStyles } from "./useStyles";
 
 const screenStyles = (t) => ({
   safe: { flex: 1, backgroundColor: t.bg },
@@ -71,9 +69,11 @@ export function Page({ children, ...props }) {
 
 export const listPadding = { padding: space.md, paddingBottom: space.xl };
 
+const AnimatedPressable = Animated.createAnimatedComponent(Pressable);
+
 const buttonStyles = (t) => ({
   base: {
-    minHeight: 44,
+    minHeight: TARGET,
     paddingHorizontal: space.md,
     borderRadius: radius.md,
     alignItems: "center",
@@ -85,54 +85,50 @@ const buttonStyles = (t) => ({
   primary: { backgroundColor: t.accent, borderColor: t.accent },
   secondary: { backgroundColor: t.surface, borderColor: t.border },
   danger: { backgroundColor: t.surface, borderColor: t.danger },
-  small: { minHeight: 34, paddingHorizontal: space.md - 4 },
+  small: { minHeight: 36, paddingHorizontal: space.md - 4 },
   disabled: { opacity: 0.5 },
-  pressed: { opacity: 0.85 },
-  label: { ...type.label, fontSize: 15 },
+  label: type.button,
   primaryLabel: { color: t.accentText },
   secondaryLabel: { color: t.text },
   dangerLabel: { color: t.danger },
 });
 
-export function Button({ label, onPress, variant = "primary", small, loading, disabled, style }) {
+// `icon` is an Ionicons name shown before the label. A small button keeps a 44 point touch area through hitSlop.
+export function Button({ label, onPress, variant = "primary", small, loading, disabled, icon, style }) {
   const s = useStyles(buttonStyles);
   const t = useTheme();
+  const press = usePressScale();
   const inactive = disabled || loading;
+  const tone = variant === "primary" ? t.accentText : variant === "danger" ? t.danger : t.text;
   return (
-    <Pressable
+    <AnimatedPressable
       accessibilityRole="button"
       accessibilityState={{ disabled: Boolean(inactive), busy: Boolean(loading) }}
       onPress={inactive ? undefined : onPress}
-      style={({ pressed }) => [
-        s.base,
-        s[variant],
-        small && s.small,
-        inactive && s.disabled,
-        pressed && !inactive && s.pressed,
-        style,
-      ]}
+      hitSlop={small ? space.xs : 0}
+      {...(inactive ? {} : press.handlers)}
+      style={[s.base, s[variant], small && s.small, inactive && s.disabled, !inactive && press.style, style]}
     >
-      {loading ? (
-        <ActivityIndicator size="small" color={variant === "primary" ? t.accentText : t.muted} />
-      ) : null}
+      {loading ? <ActivityIndicator size="small" color={variant === "primary" ? t.accentText : t.muted} /> : null}
+      {icon && !loading ? <Icon name={icon} size="sm" color={tone} /> : null}
       <Text style={[s.label, s[`${variant}Label`]]}>{label}</Text>
-    </Pressable>
+    </AnimatedPressable>
   );
 }
 
 const fieldStyles = (t) => ({
-  wrap: { gap: 6 },
+  wrap: { gap: space.xs + 2 },
   label: { ...type.label, color: t.text },
   input: {
-    minHeight: 44,
+    minHeight: TARGET,
     paddingHorizontal: space.md - 4,
-    paddingVertical: 10,
+    paddingVertical: space.sm + 2,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface,
     color: t.text,
-    fontSize: 15,
+    ...type.body,
   },
   multiline: { minHeight: 96, textAlignVertical: "top" },
   hint: { ...type.caption, color: t.muted },
@@ -158,8 +154,11 @@ export function Field({ label, hint, multiline, ...inputProps }) {
 
 const chipStyles = (t) => ({
   chip: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.xs + 2,
     paddingHorizontal: space.md - 2,
-    paddingVertical: 7,
+    paddingVertical: space.sm - 1,
     borderRadius: radius.pill,
     borderWidth: 1,
     borderColor: t.border,
@@ -169,9 +168,11 @@ const chipStyles = (t) => ({
   label: { ...type.label, color: t.muted },
   selectedLabel: { color: t.accent },
   row: { flexDirection: "row", flexWrap: "wrap", gap: space.sm },
+  nowrap: { flexWrap: "nowrap" },
 });
 
-export function ChipRow({ options, value, onChange, scroll }) {
+// `icons` maps an option to an Ionicons name shown before its label.
+export function ChipRow({ options, value, onChange, scroll, icons = {} }) {
   const s = useStyles(chipStyles);
   const chips = options.map((option) => {
     const selected = option === value;
@@ -181,15 +182,17 @@ export function ChipRow({ options, value, onChange, scroll }) {
         accessibilityRole="button"
         accessibilityState={{ selected }}
         onPress={() => onChange(selected && option !== "All" ? "" : option)}
+        hitSlop={space.xs}
         style={[s.chip, selected && s.selected]}
       >
+        {icons[option] ? <Icon name={icons[option]} size="sm" tone={selected ? "accent" : "muted"} /> : null}
         <Text style={[s.label, selected && s.selectedLabel]}>{option}</Text>
       </Pressable>
     );
   });
   if (scroll) {
     return (
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[s.row, { flexWrap: "nowrap" }]}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={[s.row, s.nowrap]}>
         {chips}
       </ScrollView>
     );
@@ -205,6 +208,8 @@ const cardStyles = (t) => ({
     borderColor: t.border,
     padding: space.md,
     gap: space.sm,
+    shadowColor: t.shadow,
+    ...elevation.card,
   },
 });
 
@@ -214,10 +219,10 @@ export function Card({ children, style }) {
 }
 
 const pillStyles = (t) => ({
-  pill: { alignSelf: "flex-start", paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: t.surfaceAlt },
+  pill: { alignSelf: "flex-start", paddingHorizontal: space.sm, paddingVertical: space.xxs, borderRadius: radius.pill, backgroundColor: t.surfaceAlt },
   warn: { backgroundColor: t.warningSoft },
   bad: { backgroundColor: t.dangerSoft },
-  label: { ...type.caption, fontWeight: "600", color: t.muted },
+  label: { ...type.micro, color: t.muted },
   warnLabel: { color: t.warning },
   badLabel: { color: t.danger },
 });
@@ -257,7 +262,7 @@ const couponStyles = (t) => ({
 });
 
 const codeStyles = (t) => ({
-  box: { gap: 2, padding: space.sm + 2, borderRadius: radius.md, backgroundColor: t.surfaceAlt },
+  box: { gap: space.xxs, padding: space.sm + 2, borderRadius: radius.md, backgroundColor: t.surfaceAlt },
   label: { ...type.caption, color: t.muted },
   code: {
     ...type.heading,
@@ -308,18 +313,52 @@ export function CouponCard({ coupon, action, code }) {
 }
 
 const emptyStyles = (t) => ({
-  wrap: { alignItems: "center", paddingVertical: space.xl, paddingHorizontal: space.lg, gap: 6 },
+  wrap: { alignItems: "center", paddingVertical: space.xl, paddingHorizontal: space.lg, gap: space.xs + 2 },
+  badge: {
+    width: 56,
+    height: 56,
+    borderRadius: radius.pill,
+    alignItems: "center",
+    justifyContent: "center",
+    backgroundColor: t.surfaceAlt,
+    marginBottom: space.sm,
+  },
+  badgeError: { backgroundColor: t.dangerSoft },
   title: { ...type.heading, color: t.text, textAlign: "center" },
   text: { ...type.body, color: t.muted, textAlign: "center", maxWidth: 360 },
+  action: { marginTop: space.md },
 });
 
-export function EmptyState({ title, text, children }) {
+// Nothing to show yet. `icon` is an Ionicons name.
+export function EmptyState({ title, text, icon = "file-tray-outline", children }) {
   const s = useStyles(emptyStyles);
   return (
     <View style={s.wrap}>
+      <View style={s.badge}>
+        <Icon name={icon} size="xl" tone="muted" />
+      </View>
       <Text style={s.title}>{title}</Text>
       <Text style={s.text}>{text}</Text>
       {children}
+    </View>
+  );
+}
+
+// The request failed. Always offers a way to try again.
+export function ErrorState({ title = "Something went wrong", text, onRetry }) {
+  const s = useStyles(emptyStyles);
+  return (
+    <View style={s.wrap} accessibilityRole="alert">
+      <View style={[s.badge, s.badgeError]}>
+        <Icon name="cloud-offline-outline" size="xl" tone="danger" />
+      </View>
+      <Text style={s.title}>{title}</Text>
+      {text ? <Text style={s.text}>{text}</Text> : null}
+      {onRetry ? (
+        <View style={s.action}>
+          <Button label="Try again" variant="secondary" icon="refresh" onPress={onRetry} />
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -334,8 +373,8 @@ export function Loading() {
 }
 
 const segmentStyles = (t) => ({
-  wrap: { flexDirection: "row", backgroundColor: t.surfaceAlt, borderRadius: radius.md, padding: 3 },
-  item: { flex: 1, alignItems: "center", paddingVertical: 8, borderRadius: radius.md - 3 },
+  wrap: { flexDirection: "row", backgroundColor: t.surfaceAlt, borderRadius: radius.md, padding: space.xs - 1 },
+  item: { flex: 1, alignItems: "center", paddingVertical: space.sm, borderRadius: radius.md - 3 },
   selected: { backgroundColor: t.surface },
   label: { ...type.label, color: t.muted },
   selectedLabel: { color: t.text },
@@ -366,7 +405,7 @@ export function Segmented({ options, value, onChange }) {
 const dialogStyles = (t) => ({
   scrim: { flex: 1, backgroundColor: t.scrim, justifyContent: "center", alignItems: "center", padding: space.md },
   box: { width: "100%", maxWidth: 440, maxHeight: "90%", backgroundColor: t.surface, borderRadius: radius.lg, padding: space.lg, gap: space.md },
-  title: { ...type.heading, fontSize: 19, color: t.text },
+  title: { ...type.heading, color: t.text },
   message: { ...type.body, color: t.muted },
   actions: { flexDirection: "row", justifyContent: "flex-end", gap: space.sm },
 });
@@ -394,24 +433,56 @@ const toastStyles = (t) => ({
     position: "absolute",
     left: space.md,
     right: space.md,
-    bottom: 84,
-    maxWidth: 480,
+    bottom: TAB_BAR + space.md,
+    maxWidth: MAX_WIDTH - 2 * space.md,
     alignSelf: "center",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.sm + 2,
     paddingHorizontal: space.md,
-    paddingVertical: 12,
+    paddingVertical: space.md - 4,
     borderRadius: radius.md,
     borderWidth: 1,
     borderColor: t.border,
     backgroundColor: t.surface,
+    shadowColor: t.shadow,
+    ...elevation.sheet,
   },
   success: { borderColor: t.accent },
   error: { borderColor: t.danger, backgroundColor: t.dangerSoft },
-  text: { ...type.body, color: t.text },
+  text: { ...type.body, color: t.text, flex: 1 },
+  cover: { position: "absolute", top: 0, left: 0, right: 0, bottom: 0 },
 });
+
+// One toast: fades and rises in under 160 ms (pattern B27); tap to dismiss.
+function Toast({ toast, onDismiss }) {
+  const s = useStyles(toastStyles);
+  const reduce = useReduceMotion();
+  const [enter] = useState(() => new Animated.Value(reduce ? 1 : 0));
+
+  useEffect(() => {
+    if (reduce) return;
+    enter.setValue(0);
+    Animated.timing(enter, { toValue: 1, duration: motion.fade, useNativeDriver }).start();
+  }, [toast, reduce, enter]);
+
+  const rise = enter.interpolate({ inputRange: [0, 1], outputRange: [space.md, 0] });
+  const failed = toast.kind === "error";
+  return (
+    <Animated.View
+      accessibilityRole="alert"
+      accessibilityLiveRegion="polite"
+      style={[s.toast, s[toast.kind], { opacity: enter, transform: [{ translateY: rise }] }]}
+    >
+      <Icon name={failed ? "alert-circle" : "checkmark-circle"} tone={failed ? "danger" : "accent"} />
+      <Text style={s.text}>{toast.message}</Text>
+      <Pressable accessibilityRole="button" accessibilityLabel="Dismiss message" onPress={onDismiss} style={s.cover} />
+    </Animated.View>
+  );
+}
 
 // Mounted once in App: shows toasts and confirmation dialogs sent through notify.js.
 export function ToastHost() {
-  const s = useStyles(toastStyles);
   const [toast, setToast] = useState(null);
   const [confirm, setConfirm] = useState(null);
 
@@ -437,15 +508,7 @@ export function ToastHost() {
 
   return (
     <>
-      {toast ? (
-        <View
-          style={[s.toast, s[toast.kind]]}
-          accessibilityRole="alert"
-          accessibilityLiveRegion="polite"
-        >
-          <Text style={s.text}>{toast.message}</Text>
-        </View>
-      ) : null}
+      {toast ? <Toast toast={toast} onDismiss={() => setToast(null)} /> : null}
       <Dialog
         visible={Boolean(confirm)}
         title={confirm?.title}

@@ -15,6 +15,11 @@ const light = {
   dangerSoft: "#FBE9E7",
   warning: "#8A5A00",
   warningSoft: "#FDF1D8",
+  offer: "#B3321E",
+  offerText: "#FFFFFF",
+  skeleton: "#E9E6DF",
+  skeletonHigh: "#F4F2ED",
+  shadow: "rgba(29, 28, 25, 0.12)",
   scrim: "rgba(20, 20, 18, 0.45)",
 };
 
@@ -32,19 +37,66 @@ const dark = {
   dangerSoft: "#3A1C19",
   warning: "#E5B04A",
   warningSoft: "#33270E",
+  offer: "#F2766D",
+  offerText: "#2B0A07",
+  skeleton: "#262825",
+  skeletonHigh: "#30332F",
+  shadow: "rgba(0, 0, 0, 0.5)",
   scrim: "rgba(0, 0, 0, 0.6)",
 };
 
-export const space = { xs: 4, sm: 8, md: 16, lg: 24, xl: 32 };
-export const radius = { sm: 6, md: 10, lg: 14, pill: 999 };
+// 4 and 8 point spacing steps; hairline is the one-pixel rule width.
+export const space = { hair: 1, xxs: 2, xs: 4, sm: 8, md: 16, lg: 24, xl: 32, xxl: 48 };
+export const radius = { sm: 6, md: 10, lg: 14, xl: 20, pill: 999 };
 export const type = {
+  display: { fontSize: 32, lineHeight: 38, fontWeight: "700", letterSpacing: -0.5 },
   title: { fontSize: 24, fontWeight: "700", letterSpacing: -0.3 },
   heading: { fontSize: 17, fontWeight: "650" },
   body: { fontSize: 15, lineHeight: 22 },
+  bodyStrong: { fontSize: 15, lineHeight: 22, fontWeight: "600" },
+  button: { fontSize: 15, fontWeight: "600" },
   label: { fontSize: 13, fontWeight: "600" },
   caption: { fontSize: 13, lineHeight: 18 },
+  micro: { fontSize: 11, lineHeight: 14, fontWeight: "700", letterSpacing: 0.3 },
 };
 
-export const MAX_WIDTH = 720;
+// Icon sizes and the smallest touch target (44 points, the platform guideline).
+export const icon = { sm: 16, md: 20, lg: 24, xl: 32 };
+export const TARGET = 44;
+export const TAB_BAR = 64;
 
+// Motion: every animation is at most 250 ms and is skipped when the person asks for less motion.
+export const motion = { press: 90, sheet: 240, fade: 160, shimmer: 1100 };
+
+// Raised surfaces. Colour comes from the theme (`shadow`); the web build reads boxShadow.
+export const elevation = {
+  card: { shadowOffset: { width: 0, height: 1 }, shadowOpacity: 1, shadowRadius: 3, elevation: 1 },
+  sheet: { shadowOffset: { width: 0, height: -4 }, shadowOpacity: 1, shadowRadius: 16, elevation: 8 },
+};
+
+// Brand tiles take a colour from this list by name, so a brand always looks the same.
+export const tilePalette = {
+  light: [
+    { bg: "#E3F1E9", fg: "#176B45" },
+    { bg: "#E6EDF9", fg: "#244A8F" },
+    { bg: "#FBE9E7", fg: "#9A2C20" },
+    { bg: "#FDF1D8", fg: "#7A4F00" },
+    { bg: "#EDE7F6", fg: "#55318F" },
+    { bg: "#E0F2F1", fg: "#0F6A66" },
+  ],
+  dark: [
+    { bg: "#17301F", fg: "#4CC38A" },
+    { bg: "#1B2638", fg: "#8CB0F2" },
+    { bg: "#3A1C19", fg: "#F2766D" },
+    { bg: "#33270E", fg: "#E5B04A" },
+    { bg: "#2A2140", fg: "#B79CF0" },
+    { bg: "#12302E", fg: "#5CD1CB" },
+  ],
+};
+
+// Phone-width column. Wider windows show it centred, never stretched (pattern B25).
+export const MAX_WIDTH = 480;
+export const WIDE_BREAKPOINT = 768;
+
+export const useIsDark = () => useColorScheme() === "dark";
 export const useTheme = () => (useColorScheme() === "dark" ? dark : light);
