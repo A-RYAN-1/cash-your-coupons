@@ -12,7 +12,10 @@ export function useReduceMotion() {
     AccessibilityInfo.isReduceMotionEnabled().then((value) => {
       if (live) setReduce(Boolean(value));
     });
-    const sub = AccessibilityInfo.addEventListener("reduceMotionChanged", setReduce);
+    const sub = AccessibilityInfo.addEventListener(
+      "reduceMotionChanged",
+      setReduce,
+    );
     return () => {
       live = false;
       sub.remove();
@@ -31,12 +34,26 @@ export function usePressScale() {
       value.setValue(target);
       return;
     }
-    Animated.timing(value, { toValue: target, duration: motion.press, useNativeDriver }).start();
+    Animated.timing(value, {
+      toValue: target,
+      duration: motion.press,
+      useNativeDriver,
+    }).start();
   };
   return {
     style: {
-      opacity: value.interpolate({ inputRange: [0, 1], outputRange: [1, 0.85] }),
-      transform: [{ scale: value.interpolate({ inputRange: [0, 1], outputRange: [1, 0.97] }) }],
+      opacity: value.interpolate({
+        inputRange: [0, 1],
+        outputRange: [1, 0.85],
+      }),
+      transform: [
+        {
+          scale: value.interpolate({
+            inputRange: [0, 1],
+            outputRange: [1, 0.97],
+          }),
+        },
+      ],
     },
     handlers: { onPressIn: () => to(1), onPressOut: () => to(0) },
   };

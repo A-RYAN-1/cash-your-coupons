@@ -12,7 +12,8 @@ const initials = (name) =>
     .map((word) => word[0].toUpperCase())
     .join("");
 
-const slot = (name) => [...String(name || "")].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
+const slot = (name) =>
+  [...String(name || "")].reduce((sum, ch) => sum + ch.charCodeAt(0), 0);
 
 // A rounded square with a brand's initials. The colour comes from the name, so a brand always looks the same.
 export function Tile({ name, size = "md" }) {
@@ -31,7 +32,11 @@ export function Tile({ name, size = "md" }) {
         justifyContent: "center",
       }}
     >
-      <Text style={[size === "lg" ? type.heading : type.label, { color: color.fg }]}>{initials(name)}</Text>
+      <Text
+        style={[size === "lg" ? type.heading : type.label, { color: color.fg }]}
+      >
+        {initials(name)}
+      </Text>
     </View>
   );
 }
