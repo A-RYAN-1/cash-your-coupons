@@ -1,5 +1,11 @@
 import React, { useState } from "react";
-import { KeyboardAvoidingView, Platform, StyleSheet, Text, View } from "react-native";
+import {
+  KeyboardAvoidingView,
+  Platform,
+  StyleSheet,
+  Text,
+  View,
+} from "react-native";
 import { createCoupon, suggestCategory } from "../api";
 import { showError, showSuccess } from "../notify";
 import { Button, ChipRow, Field, Page, Screen } from "../ui";
@@ -17,7 +23,8 @@ export const CATEGORIES = [
 ];
 
 const pad = (n) => String(n).padStart(2, "0");
-const formatDate = (date) => `${pad(date.getDate())}-${pad(date.getMonth() + 1)}-${date.getFullYear()}`;
+const formatDate = (date) =>
+  `${pad(date.getDate())}-${pad(date.getMonth() + 1)}-${date.getFullYear()}`;
 
 // "In 1 week" style shortcuts for the common expiry windows.
 const SHORTCUTS = [
@@ -28,7 +35,16 @@ const SHORTCUTS = [
 
 const parseDate = (text) => {
   const [day, month, year] = text.split("-").map(Number);
-  if (!day || !month || !year || month > 12 || day > 31 || year < 2025 || year > 2100) return null;
+  if (
+    !day ||
+    !month ||
+    !year ||
+    month > 12 ||
+    day > 31 ||
+    year < 2025 ||
+    year > 2100
+  )
+    return null;
   const date = new Date(year, month - 1, day, 23, 59, 59);
   if (date.getMonth() !== month - 1) return null;
   return date > new Date() ? date : null;
@@ -62,7 +78,7 @@ const SellCouponsScreen = () => {
       setHint(
         result.confidence === 0
           ? "No clue in the text, so this is a default. Pick the right category."
-          : `Suggested from the name and details (${Math.round(result.confidence * 100)}% sure). Change it if it is wrong.`
+          : `Suggested from the name and details (${Math.round(result.confidence * 100)}% sure). Change it if it is wrong.`,
       );
     } catch (error) {
       showError(error.message);
@@ -83,7 +99,9 @@ const SellCouponsScreen = () => {
     }
     const date = parseDate(expiry);
     if (!date) {
-      showError("Enter a future expiry date as DD-MM-YYYY, for example 11-04-2027.");
+      showError(
+        "Enter a future expiry date as DD-MM-YYYY, for example 11-04-2027.",
+      );
       return;
     }
     setBusy(true);
@@ -115,9 +133,18 @@ const SellCouponsScreen = () => {
 
   return (
     <Screen title="Sell" subtitle="List a coupon you will not use">
-      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === "ios" ? "padding" : undefined}>
+      <KeyboardAvoidingView
+        style={styles.flex}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+      >
         <Page>
-          <Field label="Brand or coupon name" value={name} onChangeText={setName} placeholder="Swiggy, Myntra, Amazon" maxLength={80} />
+          <Field
+            label="Brand or coupon name"
+            value={name}
+            onChangeText={setName}
+            placeholder="Swiggy, Myntra, Amazon"
+            maxLength={80}
+          />
 
           <View style={styles.group}>
             <Text style={[type.label, { color: t.text }]}>Category</Text>
@@ -129,11 +156,25 @@ const SellCouponsScreen = () => {
                 setHint("");
               }}
             />
-            <Button label="Suggest category" variant="secondary" small onPress={suggest} loading={suggesting} />
-            {hint ? <Text style={[type.caption, { color: t.muted }]}>{hint}</Text> : null}
+            <Button
+              label="Suggest category"
+              variant="secondary"
+              small
+              onPress={suggest}
+              loading={suggesting}
+            />
+            {hint ? (
+              <Text style={[type.caption, { color: t.muted }]}>{hint}</Text>
+            ) : null}
           </View>
 
-          <Field label="Price (INR)" value={value} onChangeText={setValue} keyboardType="decimal-pad" placeholder="250" />
+          <Field
+            label="Price (INR)"
+            value={value}
+            onChangeText={setValue}
+            keyboardType="decimal-pad"
+            placeholder="250"
+          />
 
           <View style={styles.group}>
             <Field
@@ -149,7 +190,9 @@ const SellCouponsScreen = () => {
               value=""
               onChange={(label) => {
                 const days = SHORTCUTS.find((s) => s.label === label).days;
-                setExpiry(formatDate(new Date(Date.now() + days * 24 * 60 * 60 * 1000)));
+                setExpiry(
+                  formatDate(new Date(Date.now() + days * 24 * 60 * 60 * 1000)),
+                );
               }}
             />
           </View>

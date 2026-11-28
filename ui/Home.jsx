@@ -1,6 +1,17 @@
 import React from "react";
 import { Pressable, ScrollView, Text, TextInput, View } from "react-native";
-import { TARGET, elevation, radius, space, type, useTheme } from "../theme";
+import {
+  TARGET,
+  bannerColors,
+  categoryColors,
+  elevation,
+  radius,
+  space,
+  type,
+  useCategoryColor,
+  useIsDark,
+  useTheme,
+} from "../theme";
 import { Icon } from "./Icon";
 import { Tile } from "./Tile";
 import { Skeleton } from "./Skeleton";
@@ -92,17 +103,17 @@ const tileStyles = (t) => ({
     borderRadius: radius.lg,
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: t.surfaceAlt,
-    borderWidth: 1,
-    borderColor: t.border,
+    borderWidth: 2,
+    borderColor: "transparent",
   },
-  boxOn: { backgroundColor: t.accentSoft, borderColor: t.accent },
+  boxOn: { borderColor: t.text },
   label: { ...type.caption, color: t.text, textAlign: "center" },
 });
 
 // Round-cornered icon tiles, one per category; tapping one filters the list (pattern B6).
 export function CategoryTiles({ categories, value, onChange }) {
   const s = useStyles(tileStyles);
+  const colors = categoryColors[useIsDark() ? "dark" : "light"];
   return (
     <ScrollView
       horizontal
@@ -120,11 +131,17 @@ export function CategoryTiles({ categories, value, onChange }) {
             onPress={() => onChange(on ? "" : name)}
             style={s.item}
           >
-            <View style={[s.box, on && s.boxOn]}>
+            <View
+              style={[
+                s.box,
+                { backgroundColor: (colors[name] ?? colors.Others).bg },
+                on && s.boxOn,
+              ]}
+            >
               <Icon
                 name={CATEGORY_ICONS[name] ?? "pricetag-outline"}
                 size="lg"
-                tone={on ? "accent" : "text"}
+                color={(colors[name] ?? colors.Others).fg}
               />
             </View>
             <Text style={s.label} numberOfLines={2}>
@@ -162,8 +179,8 @@ const railStyles = (t) => ({
     ...elevation.card,
   },
   name: { ...type.label, color: t.text },
-  value: { ...type.heading, color: t.accent, fontVariant: ["tabular-nums"] },
-  expiry: { ...type.caption, color: t.muted },
+  value: { ...type.title, color: t.accent, fontVariant: ["tabular-nums"] },
+  expiry: { ...type.caption, color: t.text },
   warn: { color: t.warning },
 });
 
@@ -171,18 +188,19 @@ const railStyles = (t) => ({
 export function MiniCoupon({ coupon, onPress }) {
   const s = useStyles(railStyles);
   const expiry = expiryInfo(coupon.expiryDate);
+  const tint = useCategoryColor(coupon.category);
   return (
     <Pressable
       accessibilityRole="button"
       accessibilityLabel={`${coupon.name}, ${rupees(coupon.value)}, ${expiry.label}. Buy`}
       onPress={onPress}
-      style={s.card}
+      style={[s.card, { backgroundColor: tint.bg, borderColor: tint.bg }]}
     >
-      <Tile name={coupon.name} />
+      <Tile name={coupon.name} category={coupon.category} onTint />
       <Text style={s.name} numberOfLines={1}>
         {coupon.name}
       </Text>
-      <Text style={s.value}>{rupees(coupon.value)}</Text>
+      <Text style={[s.value, { color: tint.fg }]}>{rupees(coupon.value)}</Text>
       <Text style={[s.expiry, expiry.tone === "warn" && s.warn]}>
         {expiry.label}
       </Text>
@@ -238,5 +256,67 @@ export function HomeSkeleton() {
         ))}
       </View>
     </View>
+  );
+}
+
+const bannerStyles = () => ({
+  row: {
+    paddingHorizontal: space.md,
+    gap: space.sm + 2,
+    paddingTop: space.xs,
+    paddingBottom: space.sm,
+  },
+  card: {
+    width: 280,
+    minHeight: 112,
+    borderRadius: radius.xl,
+    padding: space.md,
+    justifyContent: "space-between",
+    gap: space.sm,
+  },
+  title: { ...type.heading },
+  sub: { ...type.caption },
+  cta: {
+    alignSelf: "flex-start",
+    flexDirection: "row",
+    alignItems: "center",
+    gap: space.xs,
+    minHeight: 36,
+    paddingHorizontal: space.md - 2,
+    borderRadius: radius.pill,
+  },
+  ctaLabel: { ...type.label },
+});
+
+// Solid-colour promo cards in a swipeable row: sell an unused coupon, swap one, buy before it expires (pattern B14).
+export function Banners({ items }) {
+  const s = useStyles(bannerStyles);
+  const palette = bannerColors[useIsDark() ? "dark" : "light"];
+  return (
+    <ScrollView
+      horizontal
+      showsHorizontalScrollIndicator={false}
+      contentContainerStyle={s.row}
+    >
+      {items.map((item, i) => {
+        const c = palette[i % palette.length];
+        return (
+          <View key={item.title} style={[s.card, { backgroundColor: c.bg }]}>
+            <View style={{ gap: space.xxs }}>
+              <Text style={[s.title, { color: c.fg }]}>{item.title}</Text>
+              <Text style={[s.sub, { color: c.sub }]}>{item.text}</Text>
+            </View>
+            <Pressable
+              accessibilityRole="button"
+              onPress={item.onPress}
+              style={[s.cta, { backgroundColor: c.fg }]}
+            >
+              <Text style={[s.ctaLabel, { color: c.bg }]}>{item.cta}</Text>
+              <Icon name="arrow-forward" size="sm" color={c.bg} />
+            </Pressable>
+          </View>
+        );
+      })}
+    </ScrollView>
   );
 }

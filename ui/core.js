@@ -23,6 +23,7 @@ import {
   radius,
   space,
   type,
+  useCategoryColor,
   useTheme,
 } from "../theme";
 import { Icon } from "./Icon";
@@ -316,7 +317,7 @@ const couponStyles = (t) => ({
   top: { flexDirection: "row", alignItems: "center", gap: space.md },
   heading: { flex: 1, gap: space.xxs },
   name: { ...type.heading, color: t.text },
-  category: { ...type.caption, color: t.muted },
+  category: { ...type.label },
   value: { ...type.title, color: t.accent, fontVariant: ["tabular-nums"] },
   details: { ...type.body, color: t.muted },
   footer: {
@@ -371,14 +372,17 @@ export function CodeBox({ label, code }) {
 export function CouponCard({ coupon, action, code }) {
   const s = useStyles(couponStyles);
   const expiry = expiryInfo(coupon.expiryDate);
+  const tint = useCategoryColor(coupon.category);
   return (
     <Card>
       <View style={s.top}>
-        <Tile name={coupon.name} />
+        <Tile name={coupon.name} category={coupon.category} />
         <View style={s.heading}>
           <Text style={s.name}>{coupon.name}</Text>
           {coupon.category ? (
-            <Text style={s.category}>{coupon.category}</Text>
+            <Text style={[s.category, { color: tint.fg }]}>
+              {coupon.category}
+            </Text>
           ) : null}
         </View>
         <Text style={s.value}>{rupees(coupon.value)}</Text>
@@ -462,15 +466,6 @@ export function ErrorState({ title = "Something went wrong", text, onRetry }) {
           />
         </View>
       ) : null}
-    </View>
-  );
-}
-
-export function Loading() {
-  const t = useTheme();
-  return (
-    <View style={{ flex: 1, alignItems: "center", justifyContent: "center" }}>
-      <ActivityIndicator size="large" color={t.accent} />
     </View>
   );
 }

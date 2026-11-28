@@ -63,7 +63,10 @@ const LoginScreen = () => {
   return (
     <SafeAreaView style={[styles.safe, { backgroundColor: t.bg }]}>
       <View style={styles.column}>
-        <Text style={[type.title, { color: t.text }]} accessibilityRole="header">
+        <Text
+          style={[type.title, { color: t.text }]}
+          accessibilityRole="header"
+        >
           Cash Your Coupons
         </Text>
         <Text style={[type.body, styles.lead, { color: t.muted }]}>
@@ -72,7 +75,11 @@ const LoginScreen = () => {
 
         <Card style={styles.form}>
           <Text style={[type.heading, { color: t.text }]}>
-            {creating ? "Create an account" : recovering ? "Reset your password" : "Sign in"}
+            {creating
+              ? "Create an account"
+              : recovering
+                ? "Reset your password"
+                : "Sign in"}
           </Text>
           <Field
             label="Email"
@@ -99,8 +106,14 @@ const LoginScreen = () => {
               value={password}
               onChangeText={setPassword}
               secureTextEntry
-              autoComplete={creating || mode === "reset" ? "new-password" : "current-password"}
-              textContentType={creating || mode === "reset" ? "newPassword" : "password"}
+              autoComplete={
+                creating || mode === "reset"
+                  ? "new-password"
+                  : "current-password"
+              }
+              textContentType={
+                creating || mode === "reset" ? "newPassword" : "password"
+              }
               onSubmitEditing={submit}
             />
           )}
