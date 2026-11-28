@@ -268,8 +268,20 @@ const cardStyles = (t) => ({
   },
 });
 
-export function Card({ children, style }) {
+export function Card({ children, style, onPress, label }) {
   const s = useStyles(cardStyles);
+  if (onPress) {
+    return (
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={label}
+        onPress={onPress}
+        style={[s.card, style]}
+      >
+        {children}
+      </Pressable>
+    );
+  }
   return <View style={[s.card, style]}>{children}</View>;
 }
 
@@ -369,12 +381,17 @@ export function CodeBox({ label, code }) {
 }
 
 // Brand tile, name and category on the left, face value on the right, expiry badge and action below (pattern B2).
-export function CouponCard({ coupon, action, code }) {
+export function CouponCard({ coupon, action, code, onPress }) {
   const s = useStyles(couponStyles);
   const expiry = expiryInfo(coupon.expiryDate);
   const tint = useCategoryColor(coupon.category);
   return (
-    <Card>
+    <Card
+      onPress={onPress}
+      label={
+        onPress ? `${coupon.name}, ${rupees(coupon.value)}. Open` : undefined
+      }
+    >
       <View style={s.top}>
         <Tile name={coupon.name} category={coupon.category} />
         <View style={s.heading}>

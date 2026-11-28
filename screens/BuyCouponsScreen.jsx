@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useCallback, useMemo } from "react";
+import React, { useState, useCallback, useMemo } from "react";
 import {
   RefreshControl,
   SafeAreaView,
@@ -7,7 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
-import { useNavigation } from "@react-navigation/native";
+import { useFocusEffect, useNavigation } from "@react-navigation/native";
 import { listCoupons, buyCoupon } from "../api";
 import { showError, showSuccess } from "../notify";
 import {
@@ -17,7 +17,6 @@ import {
   FilterSheet,
   CouponCard,
   Banners,
-  Dialog,
   EmptyState,
   ErrorState,
   HomeBar,
@@ -61,6 +60,8 @@ const bucket = (expiryDate) => {
 const BuyCouponsScreen = () => {
   const t = useTheme();
   const navigation = useNavigation();
+  const openCoupon = (coupon) =>
+    navigation.navigate("CouponDetail", { coupon });
   const [coupons, setCoupons] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [buying, setBuying] = useState(null);
@@ -70,7 +71,6 @@ const BuyCouponsScreen = () => {
   const [sheet, setSheet] = useState(false);
   const [category, setCategory] = useState("");
   const [failed, setFailed] = useState(false);
-  const [confirming, setConfirming] = useState(null);
 
   const load = useCallback(async () => {
     try {
@@ -83,11 +83,12 @@ const BuyCouponsScreen = () => {
     }
   }, []);
 
-  useEffect(() => {
-    // Load on mount; the loader sets state only after the request returns.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    load();
-  }, [load]);
+  // Load on mount and again each time the tab or the detail page returns to focus (a bought coupon leaves the list).
+  useFocusEffect(
+    useCallback(() => {
+      load();
+    }, [load]),
+  );
 
   const refresh = async () => {
     setRefreshing(true);
@@ -159,12 +160,6 @@ const BuyCouponsScreen = () => {
     };
   }, [coupons]);
 
-  const confirmBuy = async () => {
-    const coupon = confirming;
-    setConfirming(null);
-    await buy(coupon);
-  };
-
   const count = sections.reduce((n, x) => n + x.data.length, 0);
 
   const header = (
@@ -205,18 +200,18 @@ const BuyCouponsScreen = () => {
             title="Expiring soon"
             subtitle="Seven days or less left"
             coupons={rails.soon}
-            onPick={setConfirming}
+            onPick={openCoupon}
           />
           <Rail
             title="Biggest value"
             subtitle="Highest face value first"
             coupons={rails.biggest}
-            onPick={setConfirming}
+            onPick={openCoupon}
           />
           <Rail
             title="Just listed"
             coupons={rails.newest}
-            onPick={setConfirming}
+            onPick={openCoupon}
           />
         </>
       ) : null}
@@ -273,6 +268,7 @@ const BuyCouponsScreen = () => {
             <View style={[styles.item, styles.pad]}>
               <CouponCard
                 coupon={item}
+                onPress={() => openCoupon(item)}
                 action={
                   <Button
                     small
@@ -321,27 +317,6 @@ const BuyCouponsScreen = () => {
             setSort(v.sort);
           }}
           countFor={(v) => matchFor(v.window).length}
-        />
-        <Dialog
-          visible={confirming !== null}
-          title={confirming ? `Buy ${confirming.name}?` : ""}
-          message={
-            confirming
-              ? `You pay ${rupees(confirming.value)}. ${expiryInfo(confirming.expiryDate).label}.`
-              : ""
-          }
-          onClose={() => setConfirming(null)}
-          actions={
-            <>
-              <Button
-                small
-                variant="secondary"
-                label="Cancel"
-                onPress={() => setConfirming(null)}
-              />
-              <Button small label="Buy" onPress={confirmBuy} />
-            </>
-          }
         />
       </View>
     </SafeAreaView>

@@ -1,6 +1,10 @@
 import React, { useState, useEffect } from "react";
 import { View, useWindowDimensions } from "react-native";
-import { NavigationContainer, DefaultTheme, DarkTheme } from "@react-navigation/native";
+import {
+  NavigationContainer,
+  DefaultTheme,
+  DarkTheme,
+} from "@react-navigation/native";
 import { createStackNavigator } from "@react-navigation/stack";
 import { createBottomTabNavigator } from "@react-navigation/bottom-tabs";
 import { StatusBar } from "expo-status-bar";
@@ -11,8 +15,18 @@ import SellCouponsScreen from "./screens/SellCouponsScreen";
 import ExchangeCouponsScreen from "./screens/ExchangeCouponsScreen";
 import ProfileScreen from "./screens/ProfileScreen";
 import LoginScreen from "./screens/LoginScreen";
+import CouponDetailScreen from "./screens/CouponDetailScreen";
 import { Loading, ToastHost } from "./ui";
-import { MAX_WIDTH, TAB_BAR, icon, space, type, WIDE_BREAKPOINT, useIsDark, useTheme } from "./theme";
+import {
+  MAX_WIDTH,
+  TAB_BAR,
+  icon,
+  space,
+  type,
+  WIDE_BREAKPOINT,
+  useIsDark,
+  useTheme,
+} from "./theme";
 
 const Stack = createStackNavigator();
 const Tab = createBottomTabNavigator();
@@ -31,11 +45,21 @@ const MainTabs = () => {
       screenOptions={({ route }) => ({
         headerShown: false,
         tabBarIcon: ({ focused, color }) => (
-          <Ionicons name={icons[route.name][focused ? 0 : 1]} size={icon.lg} color={color} />
+          <Ionicons
+            name={icons[route.name][focused ? 0 : 1]}
+            size={icon.lg}
+            color={color}
+          />
         ),
         tabBarActiveTintColor: t.accent,
         tabBarInactiveTintColor: t.muted,
-        tabBarStyle: { backgroundColor: t.surface, borderTopColor: t.border, height: TAB_BAR, paddingTop: space.xs + 2, paddingBottom: space.xs + 2 },
+        tabBarStyle: {
+          backgroundColor: t.surface,
+          borderTopColor: t.border,
+          height: TAB_BAR,
+          paddingTop: space.xs + 2,
+          paddingBottom: space.xs + 2,
+        },
         tabBarLabelStyle: { ...type.label, flexShrink: 0 },
       })}
     >
@@ -53,7 +77,13 @@ const Frame = ({ children }) => {
   const { width } = useWindowDimensions();
   const wide = width >= WIDE_BREAKPOINT;
   return (
-    <View style={{ flex: 1, backgroundColor: wide ? t.surfaceAlt : t.bg, alignItems: "center" }}>
+    <View
+      style={{
+        flex: 1,
+        backgroundColor: wide ? t.surfaceAlt : t.bg,
+        alignItems: "center",
+      }}
+    >
       <View
         style={{
           flex: 1,
@@ -86,7 +116,14 @@ const App = () => {
   const base = dark ? DarkTheme : DefaultTheme;
   const navTheme = {
     ...base,
-    colors: { ...base.colors, background: t.bg, card: t.surface, border: t.border, text: t.text, primary: t.accent },
+    colors: {
+      ...base.colors,
+      background: t.bg,
+      card: t.surface,
+      border: t.border,
+      text: t.text,
+      primary: t.accent,
+    },
   };
 
   return (
@@ -96,9 +133,17 @@ const App = () => {
         <Loading />
       ) : (
         <NavigationContainer theme={navTheme}>
-          <Stack.Navigator screenOptions={{ headerShown: false, animation: "none" }}>
+          <Stack.Navigator
+            screenOptions={{ headerShown: false, animation: "none" }}
+          >
             {isAuthenticated ? (
-              <Stack.Screen name="Main" component={MainTabs} />
+              <>
+                <Stack.Screen name="Main" component={MainTabs} />
+                <Stack.Screen
+                  name="CouponDetail"
+                  component={CouponDetailScreen}
+                />
+              </>
             ) : (
               <Stack.Screen name="Login" component={LoginScreen} />
             )}

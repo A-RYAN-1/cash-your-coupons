@@ -126,7 +126,7 @@ export const tilePalette = {
 // One colour pair per category, so Food always reads orange and Travel blue (pattern B6).
 export const categoryColors = {
   light: {
-    Food: { bg: "#FFE9D6", fg: "#B4500A" },
+    Food: { bg: "#FFE9D6", fg: "#A04406" },
     Clothes: { bg: "#F9E1EE", fg: "#A3225F" },
     Travel: { bg: "#DDEBFB", fg: "#1D5CA8" },
     Electronics: { bg: "#E6E3FA", fg: "#4636B0" },
