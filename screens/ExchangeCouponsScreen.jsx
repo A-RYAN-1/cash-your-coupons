@@ -2,7 +2,19 @@ import React, { useState } from "react";
 import { StyleSheet, Text, View } from "react-native";
 import { listCoupons, listMyCoupons, offerExchange } from "../api";
 import { showError, showSuccess } from "../notify";
-import { Button, ChipRow, CouponCard, Dialog, EmptyState, Field, Page, Screen, rupees } from "../ui";
+import {
+  Button,
+  ChipRow,
+  CouponCard,
+  Dialog,
+  EmptyState,
+  ErrorState,
+  Field,
+  ListSkeleton,
+  Page,
+  Screen,
+  rupees,
+} from "../ui";
 import { CATEGORIES } from "./SellCouponsScreen";
 import { space, type, useTheme } from "../theme";
 
@@ -14,6 +26,7 @@ const ExchangeCouponsScreen = () => {
   const [price, setPrice] = useState("");
   const [matches, setMatches] = useState(null);
   const [busy, setBusy] = useState(false);
+  const [failed, setFailed] = useState(false);
   const [target, setTarget] = useState(null);
   const [mine, setMine] = useState(null);
   const [offering, setOffering] = useState(false);
@@ -24,10 +37,12 @@ const ExchangeCouponsScreen = () => {
       return;
     }
     setBusy(true);
+    setFailed(false);
     try {
       setMatches(await listCoupons({ category, value: price.trim() }));
     } catch (error) {
       showError(error.message);
+      setFailed(true);
     } finally {
       setBusy(false);
     }
@@ -52,7 +67,9 @@ const ExchangeCouponsScreen = () => {
     setOffering(true);
     try {
       await offerExchange(own.id, target.id);
-      showSuccess(`Offered ${own.name} for ${target.name}. The answer appears under Profile, Offers.`);
+      showSuccess(
+        `Offered ${own.name} for ${target.name}. The answer appears under Profile, Offers.`,
+      );
       setTarget(null);
     } catch (error) {
       showError(error.message);
@@ -68,28 +85,70 @@ const ExchangeCouponsScreen = () => {
   };
 
   return (
-    <Screen title="Exchange" subtitle="Find a coupon of a similar kind or value">
+    <Screen
+      title="Exchange"
+      subtitle="Find a coupon of a similar kind or value"
+    >
       <Page>
         <View style={styles.group}>
           <Text style={[type.label, { color: t.text }]}>Category</Text>
-          <ChipRow options={CATEGORIES} value={category} onChange={setCategory} />
+          <ChipRow
+            options={CATEGORIES}
+            value={category}
+            onChange={setCategory}
+          />
         </View>
-        <Field label="Price (INR)" value={price} onChangeText={setPrice} keyboardType="decimal-pad" placeholder="250" />
+        <Field
+          label="Price (INR)"
+          value={price}
+          onChangeText={setPrice}
+          keyboardType="decimal-pad"
+          placeholder="250"
+        />
         <View style={styles.actions}>
-          <Button label="Search" onPress={search} loading={busy} style={styles.grow} />
-          <Button label="Clear" variant="secondary" onPress={clear} disabled={busy} />
+          <Button
+            label="Search"
+            onPress={search}
+            loading={busy}
+            style={styles.grow}
+          />
+          <Button
+            label="Clear"
+            variant="secondary"
+            onPress={clear}
+            disabled={busy}
+          />
         </View>
 
-        {matches === null ? null : matches.length === 0 ? (
-          <EmptyState title="No matches" text="Nobody is selling a coupon in that category or at that price right now." />
+        {busy ? (
+          <ListSkeleton count={2} />
+        ) : failed ? (
+          <ErrorState
+            title="Search failed"
+            text="Check your connection and try again."
+            onRetry={search}
+          />
+        ) : matches === null ? null : matches.length === 0 ? (
+          <EmptyState
+            title="No matches"
+            text="Nobody is selling a coupon in that category or at that price right now."
+          />
         ) : (
           <View style={styles.group}>
-            <Text style={[type.label, { color: t.muted }]}>{matches.length} MATCHING</Text>
+            <Text style={[type.label, { color: t.muted }]}>
+              {matches.length} MATCHING
+            </Text>
             {matches.map((coupon) => (
               <CouponCard
                 key={coupon.id}
                 coupon={coupon}
-                action={<Button small label="Offer a swap" onPress={() => startOffer(coupon)} />}
+                action={
+                  <Button
+                    small
+                    label="Offer a swap"
+                    onPress={() => startOffer(coupon)}
+                  />
+                }
               />
             ))}
           </View>
@@ -99,12 +158,26 @@ const ExchangeCouponsScreen = () => {
       <Dialog
         visible={target !== null}
         title="Offer a swap"
-        message={target ? `Pick one of your coupons to offer for ${target.name} (${rupees(target.value)}).` : undefined}
+        message={
+          target
+            ? `Pick one of your coupons to offer for ${target.name} (${rupees(target.value)}).`
+            : undefined
+        }
         onClose={closeOffer}
-        actions={<Button label="Cancel" variant="secondary" onPress={closeOffer} disabled={offering} />}
+        actions={
+          <Button
+            label="Cancel"
+            variant="secondary"
+            onPress={closeOffer}
+            disabled={offering}
+          />
+        }
       >
         {mine === null ? null : mine.length === 0 ? (
-          <EmptyState title="Nothing to offer" text="List a coupon on the Sell tab first, then come back to offer it." />
+          <EmptyState
+            title="Nothing to offer"
+            text="List a coupon on the Sell tab first, then come back to offer it."
+          />
         ) : (
           <View style={styles.group}>
             {mine.map((own) => (

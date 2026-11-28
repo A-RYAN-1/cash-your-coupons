@@ -7,6 +7,7 @@ import {
   Text,
   View,
 } from "react-native";
+import { useNavigation } from "@react-navigation/native";
 import { listCoupons, buyCoupon } from "../api";
 import { showError, showSuccess } from "../notify";
 import {
@@ -15,6 +16,7 @@ import {
   FilterBar,
   FilterSheet,
   CouponCard,
+  Banners,
   Dialog,
   EmptyState,
   ErrorState,
@@ -58,6 +60,7 @@ const bucket = (expiryDate) => {
 
 const BuyCouponsScreen = () => {
   const t = useTheme();
+  const navigation = useNavigation();
   const [coupons, setCoupons] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
   const [buying, setBuying] = useState(null);
@@ -167,6 +170,30 @@ const BuyCouponsScreen = () => {
   const header = (
     <View>
       <HomeBar query={query} onQuery={setQuery} />
+      {browsing ? (
+        <Banners
+          items={[
+            {
+              title: "Unused coupon?",
+              text: "List it in a minute and let someone use it.",
+              cta: "Sell now",
+              onPress: () => navigation.navigate("Sell"),
+            },
+            {
+              title: "Swap, do not waste",
+              text: "Trade a coupon for one you will use.",
+              cta: "Find a swap",
+              onPress: () => navigation.navigate("Exchange"),
+            },
+            {
+              title: "Expiring this week",
+              text: "Grab these before they are gone.",
+              cta: "See filters",
+              onPress: () => setSheet(true),
+            },
+          ]}
+        />
+      ) : null}
       <CategoryTiles
         categories={CATEGORIES}
         value={category}

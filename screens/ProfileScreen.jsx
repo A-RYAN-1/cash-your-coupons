@@ -13,8 +13,24 @@ import {
   logout,
 } from "../api";
 import { showError, showSuccess, confirmAction } from "../notify";
-import { Button, Card, CodeBox, CouponCard, Dialog, EmptyState, Field, Loading, Page, Pill, Screen, Segmented, rupees } from "../ui";
-import { space, type, useTheme } from "../theme";
+import {
+  Button,
+  Card,
+  CodeBox,
+  CouponCard,
+  Dialog,
+  EmptyState,
+  ErrorState,
+  Field,
+  ListSkeleton,
+  Page,
+  Skeleton,
+  Pill,
+  Screen,
+  Segmented,
+  rupees,
+} from "../ui";
+import { radius, space, type, useTheme } from "../theme";
 
 const DETAILS = [
   ["name", "Name"],
@@ -28,7 +44,12 @@ const DETAILS = [
 const pickDetails = (profile) =>
   Object.fromEntries(DETAILS.map(([key]) => [key, profile[key] ?? ""]));
 
-const STATUS_LABEL = { pending: "Pending", accepted: "Accepted", declined: "Declined", cancelled: "Cancelled" };
+const STATUS_LABEL = {
+  pending: "Pending",
+  accepted: "Accepted",
+  declined: "Declined",
+  cancelled: "Cancelled",
+};
 const STATUS_TONE = { pending: "warn", declined: "bad", cancelled: "bad" };
 
 // One exchange offer, worded from the viewer's side, with the actions that side may take.
@@ -39,34 +60,78 @@ const OfferCard = ({ offer, onAnswer }) => {
   const get = sent ? offer.requested : offer.offered;
   return (
     <Card>
-      <Text style={[type.caption, { color: t.muted }]}>{sent ? "YOU OFFERED" : "OFFER FOR YOUR COUPON"}</Text>
+      <Text style={[type.caption, { color: t.muted }]}>
+        {sent ? "YOU OFFERED" : "OFFER FOR YOUR COUPON"}
+      </Text>
       <View style={styles.cardHead}>
-        <Text style={[type.heading, styles.rowValue, { color: t.text, textAlign: "left" }]}>{give.name}</Text>
-        <Text style={[type.heading, { color: t.accent }]}>{rupees(give.value)}</Text>
+        <Text
+          style={[
+            type.heading,
+            styles.rowValue,
+            { color: t.text, textAlign: "left" },
+          ]}
+        >
+          {give.name}
+        </Text>
+        <Text style={[type.heading, { color: t.accent }]}>
+          {rupees(give.value)}
+        </Text>
       </View>
       <Text style={[type.caption, { color: t.muted }]}>in exchange for</Text>
       <View style={styles.cardHead}>
-        <Text style={[type.heading, styles.rowValue, { color: t.text, textAlign: "left" }]}>{get.name}</Text>
-        <Text style={[type.heading, { color: t.accent }]}>{rupees(get.value)}</Text>
+        <Text
+          style={[
+            type.heading,
+            styles.rowValue,
+            { color: t.text, textAlign: "left" },
+          ]}
+        >
+          {get.name}
+        </Text>
+        <Text style={[type.heading, { color: t.accent }]}>
+          {rupees(get.value)}
+        </Text>
       </View>
       <View style={styles.cardHead}>
-        <Pill label={STATUS_LABEL[offer.status]} tone={STATUS_TONE[offer.status]} />
+        <Pill
+          label={STATUS_LABEL[offer.status]}
+          tone={STATUS_TONE[offer.status]}
+        />
         {offer.status === "pending" ? (
           <View style={styles.offerActions}>
             {sent ? (
-              <Button small variant="secondary" label="Cancel offer" onPress={() => onAnswer(cancelExchange, offer, "Offer cancelled.")} />
+              <Button
+                small
+                variant="secondary"
+                label="Cancel offer"
+                onPress={() =>
+                  onAnswer(cancelExchange, offer, "Offer cancelled.")
+                }
+              />
             ) : (
               <>
-                <Button small variant="secondary" label="Decline" onPress={() => onAnswer(declineExchange, offer, "Offer declined.")} />
+                <Button
+                  small
+                  variant="secondary"
+                  label="Decline"
+                  onPress={() =>
+                    onAnswer(declineExchange, offer, "Offer declined.")
+                  }
+                />
                 <Button
                   small
                   label="Accept"
                   onPress={() =>
-                    onAnswer(acceptExchange, offer, `Exchanged. ${offer.offered.name} is yours.`, {
-                      title: "Accept this exchange",
-                      message: `Give up "${offer.requested.name}" and take "${offer.offered.name}"? This cannot be undone.`,
-                      confirm: "Accept",
-                    })
+                    onAnswer(
+                      acceptExchange,
+                      offer,
+                      `Exchanged. ${offer.offered.name} is yours.`,
+                      {
+                        title: "Accept this exchange",
+                        message: `Give up "${offer.requested.name}" and take "${offer.offered.name}"? This cannot be undone.`,
+                        confirm: "Accept",
+                      },
+                    )
                   }
                 />
               </>
@@ -76,9 +141,14 @@ const OfferCard = ({ offer, onAnswer }) => {
       </View>
       {offer.status === "accepted" ? (
         offer.receivedCode ? (
-          <CodeBox label={`Voucher code for ${get.name}`} code={offer.receivedCode} />
+          <CodeBox
+            label={`Voucher code for ${get.name}`}
+            code={offer.receivedCode}
+          />
         ) : (
-          <Text style={[type.caption, { color: t.muted }]}>The other person did not add a voucher code for {get.name}.</Text>
+          <Text style={[type.caption, { color: t.muted }]}>
+            The other person did not add a voucher code for {get.name}.
+          </Text>
         )
       ) : null}
     </Card>
@@ -89,6 +159,7 @@ const ProfileScreen = () => {
   const t = useTheme();
   const [email, setEmail] = useState("");
   const [details, setDetails] = useState(null);
+  const [failed, setFailed] = useState(false);
   const [selling, setSelling] = useState([]);
   const [bought, setBought] = useState([]);
   const [offers, setOffers] = useState([]);
@@ -105,6 +176,7 @@ const ProfileScreen = () => {
         listPurchases(),
         listExchanges(),
       ]);
+      setFailed(false);
       setEmail(profile.email);
       setDetails(pickDetails(profile));
       setSelling(sold);
@@ -112,6 +184,7 @@ const ProfileScreen = () => {
       setOffers(exchanges);
     } catch (error) {
       showError(error.message);
+      setFailed(true);
       setDetails((current) => current ?? pickDetails({}));
     }
   }, []);
@@ -145,7 +218,7 @@ const ProfileScreen = () => {
     const confirmed = await confirmAction(
       "Withdraw listing",
       `Remove "${coupon.name}" from sale? Buyers will no longer see it.`,
-      "Withdraw"
+      "Withdraw",
     );
     if (!confirmed) return;
     try {
@@ -160,7 +233,8 @@ const ProfileScreen = () => {
   // Accept, decline or cancel. An answer can change coupons too, so reload everything, also on a
   // failure (the other side may have answered first).
   const answer = async (call, offer, done, ask) => {
-    if (ask && !(await confirmAction(ask.title, ask.message, ask.confirm))) return;
+    if (ask && !(await confirmAction(ask.title, ask.message, ask.confirm)))
+      return;
     try {
       await call(offer.id);
       showSuccess(done);
@@ -172,20 +246,66 @@ const ProfileScreen = () => {
 
   const pending = offers.filter((offer) => offer.status === "pending").length;
 
-  if (details === null) return <Screen title="Profile"><Loading /></Screen>;
+  if (details === null) {
+    return (
+      <Screen title="Profile">
+        <View style={{ padding: space.md, gap: space.md }}>
+          <Card>
+            {DETAILS.slice(0, 4).map(([key]) => (
+              <View
+                key={key}
+                style={{
+                  flexDirection: "row",
+                  justifyContent: "space-between",
+                  paddingVertical: space.sm,
+                }}
+              >
+                <Skeleton width={70} height={12} />
+                <Skeleton width={110} height={14} />
+              </View>
+            ))}
+          </Card>
+          <Skeleton height={44} round={radius.md} />
+        </View>
+        <ListSkeleton count={2} />
+      </Screen>
+    );
+  }
 
   return (
     <Screen title="Profile" subtitle={email}>
-      <Page refreshControl={<RefreshControl refreshing={refreshing} onRefresh={refresh} />}>
+      <Page
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={refresh} />
+        }
+      >
+        {failed ? (
+          <ErrorState
+            title="Could not load your profile"
+            text="Check your connection and try again."
+            onRetry={load}
+          />
+        ) : null}
         <Card>
           <View style={styles.cardHead}>
             <Text style={[type.heading, { color: t.text }]}>Your details</Text>
-            <Button small variant="secondary" label="Edit" onPress={() => setEditing(details)} />
+            <Button
+              small
+              variant="secondary"
+              label="Edit"
+              onPress={() => setEditing(details)}
+            />
           </View>
           {DETAILS.map(([key, label]) => (
             <View key={key} style={[styles.row, { borderTopColor: t.border }]}>
               <Text style={[type.caption, { color: t.muted }]}>{label}</Text>
-              <Text style={[type.body, styles.rowValue, { color: details[key] ? t.text : t.muted }]}>
+              <Text
+                style={[
+                  type.body,
+                  styles.rowValue,
+                  { color: details[key] ? t.text : t.muted },
+                ]}
+              >
                 {details[key] || "Not set"}
               </Text>
             </View>
@@ -198,42 +318,77 @@ const ProfileScreen = () => {
           options={[
             { value: "selling", label: `Selling (${selling.length})` },
             { value: "bought", label: `Bought (${bought.length})` },
-            { value: "offers", label: pending > 0 ? `Offers (${pending})` : "Offers" },
+            {
+              value: "offers",
+              label: pending > 0 ? `Offers (${pending})` : "Offers",
+            },
           ]}
         />
 
         {tab === "selling" ? (
           selling.length === 0 ? (
-            <EmptyState title="Nothing listed" text="Coupons you list on the Sell tab appear here until someone buys them." />
+            <EmptyState
+              title="Nothing listed"
+              text="Coupons you list on the Sell tab appear here until someone buys them."
+            />
           ) : (
             selling.map((coupon) => (
               <CouponCard
                 key={coupon.id}
                 coupon={coupon}
-                code={coupon.voucherCode ? { label: "Your voucher code (hidden from buyers until they pay)", value: coupon.voucherCode } : null}
-                action={<Button small variant="danger" label="Withdraw" onPress={() => withdraw(coupon)} />}
+                code={
+                  coupon.voucherCode
+                    ? {
+                        label:
+                          "Your voucher code (hidden from buyers until they pay)",
+                        value: coupon.voucherCode,
+                      }
+                    : null
+                }
+                action={
+                  <Button
+                    small
+                    variant="danger"
+                    label="Withdraw"
+                    onPress={() => withdraw(coupon)}
+                  />
+                }
               />
             ))
           )
         ) : tab === "offers" ? (
           offers.length === 0 ? (
-            <EmptyState title="No offers" text="Offer a swap from the Exchange tab. Offers you send and receive appear here." />
+            <EmptyState
+              title="No offers"
+              text="Offer a swap from the Exchange tab. Offers you send and receive appear here."
+            />
           ) : (
-            offers.map((offer) => <OfferCard key={offer.id} offer={offer} onAnswer={answer} />)
+            offers.map((offer) => (
+              <OfferCard key={offer.id} offer={offer} onAnswer={answer} />
+            ))
           )
         ) : bought.length === 0 ? (
-          <EmptyState title="No purchases yet" text="Coupons you buy appear here." />
+          <EmptyState
+            title="No purchases yet"
+            text="Coupons you buy appear here."
+          />
         ) : (
           bought.map((purchase) => (
             <Card key={purchase.id}>
               <View style={styles.cardHead}>
-                <Text style={[type.heading, { color: t.text }]}>{purchase.couponName}</Text>
-                <Text style={[type.heading, { color: t.accent }]}>{rupees(purchase.couponValue)}</Text>
+                <Text style={[type.heading, { color: t.text }]}>
+                  {purchase.couponName}
+                </Text>
+                <Text style={[type.heading, { color: t.accent }]}>
+                  {rupees(purchase.couponValue)}
+                </Text>
               </View>
               {purchase.voucherCode ? (
                 <CodeBox label="Voucher code" code={purchase.voucherCode} />
               ) : (
-                <Text style={[type.caption, { color: t.muted }]}>The seller did not add a voucher code. Ask them for it.</Text>
+                <Text style={[type.caption, { color: t.muted }]}>
+                  The seller did not add a voucher code. Ask them for it.
+                </Text>
               )}
             </Card>
           ))
@@ -248,7 +403,12 @@ const ProfileScreen = () => {
         onClose={() => setEditing(null)}
         actions={
           <>
-            <Button label="Cancel" variant="secondary" onPress={() => setEditing(null)} disabled={saving} />
+            <Button
+              label="Cancel"
+              variant="secondary"
+              onPress={() => setEditing(null)}
+              disabled={saving}
+            />
             <Button label="Save" onPress={save} loading={saving} />
           </>
         }
@@ -260,8 +420,16 @@ const ProfileScreen = () => {
                 key={key}
                 label={label}
                 value={editing[key]}
-                onChangeText={(text) => setEditing((current) => ({ ...current, [key]: text }))}
-                keyboardType={key === "age" ? "number-pad" : key === "phone" ? "phone-pad" : "default"}
+                onChangeText={(text) =>
+                  setEditing((current) => ({ ...current, [key]: text }))
+                }
+                keyboardType={
+                  key === "age"
+                    ? "number-pad"
+                    : key === "phone"
+                      ? "phone-pad"
+                      : "default"
+                }
                 placeholder={key === "dob" ? "DD-MM-YYYY" : undefined}
                 maxLength={key === "dob" ? 10 : undefined}
               />
@@ -273,8 +441,19 @@ const ProfileScreen = () => {
 };
 
 const styles = StyleSheet.create({
-  cardHead: { flexDirection: "row", justifyContent: "space-between", alignItems: "center", gap: space.md },
-  row: { flexDirection: "row", justifyContent: "space-between", gap: space.md, paddingTop: space.sm, borderTopWidth: StyleSheet.hairlineWidth },
+  cardHead: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    alignItems: "center",
+    gap: space.md,
+  },
+  row: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    gap: space.md,
+    paddingTop: space.sm,
+    borderTopWidth: StyleSheet.hairlineWidth,
+  },
   rowValue: { flexShrink: 1, textAlign: "right" },
   form: { gap: space.sm + 4 },
   offerActions: { flexDirection: "row", gap: space.sm },
